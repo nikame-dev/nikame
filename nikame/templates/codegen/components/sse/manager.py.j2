@@ -1,0 +1,23 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+import asyncio
+from typing import AsyncGenerator
+from fastapi import Request
+
+class SSEManager:
+    def __init__(self):
+        self.queues = []
+
+    async def subscribe(self) -> AsyncGenerator[str, None]:
+        queue = asyncio.Queue()
+        self.queues.append(queue)
+        try:
+            while True:
+                yield await queue.get()
+        finally:
+            self.queues.remove(queue)
+
+    async def broadcast(self, message: str):
+        for queue in self.queues:
+            await queue.put(message)
+
+sse_manager = SSEManager()

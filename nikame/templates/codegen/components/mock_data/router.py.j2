@@ -1,0 +1,11 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from fastapi import APIRouter, BackgroundTasks
+from scripts.seed_mock import generate_mock_data
+
+router = APIRouter(prefix="/mock", tags=["Mock Data"])
+
+@router.post("/seed")
+async def seed_mock(count: int = 10, background_tasks: BackgroundTasks = None):
+    if background_tasks:
+        background_tasks.add_task(generate_mock_data, count)
+    return {"message": f"Seeding {count} items in background"}

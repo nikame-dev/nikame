@@ -1,0 +1,55 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from __future__ import annotations
+
+from datetime import datetime
+import uuid
+from enum import Enum as PyEnum
+from typing import Optional, List, Any
+
+from sqlalchemy import String, Integer, Float, Boolean, DateTime, JSON, ForeignKey, Table, Column, Enum
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.asyncio import AsyncAttrs
+
+from app.db.base import Base
+
+
+class {{ model_name | capitalize }}(AsyncAttrs, Base):
+    __tablename__ = "{{ table_name }}"
+
+    {% for field_name, field in fields.items() %}
+    {% if field.enum_values %}
+    class {{ field_name | capitalize }}Enum(str, PyEnum):
+        {% for val in field.enum_values %}
+        {{ val | upper }} = "{{ val }}"
+        {% endfor %}
+
+    {{ field_name }}: Mapped[{{ field_name | capitalize }}Enum{% if field.nullable %}| None{% endif %}] = mapped_column(
+        Enum({{ field_name | capitalize }}Enum),
+        index={{ "True" if field.index else "False" }},
+        unique={{ "True" if field.unique else "False" }},
+        nullable={{ "True" if field.nullable else "False" }},
+    )
+    {% else %}
+    {{ field_name }}: Mapped[{{ field.python_type }}{% if field.nullable %}| None{% endif %}] = mapped_column(
+        {{ field.sa_type }},
+        primary_key={{ "True" if field.primary_key else "False" }},
+        index={{ "True" if field.index else "False" }},
+        unique={{ "True" if field.unique else "False" }},
+        nullable={{ "True" if field.nullable else "False" }},
+        {% if field.default is not none %}default={{ field.default_repr }},{% endif %}
+    )
+    {% endif %}
+    {% endfor %}
+
+    {% if soft_delete %}
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    {% endif %}
+
+    {% for rel_name, rel in relationships.items() %}
+    {% if rel.type == 'many-to-one' %}
+    {{ rel_name }}_id: Mapped[{{ rel.id_type }}] = mapped_column(ForeignKey("{{ rel.target_table }}.id"))
+    {{ rel_name }}: Mapped["{{ rel.target_model }}"] = relationship(back_populates="{{ rel.backref }}")
+    {% elif rel.type == 'one-to-many' %}
+    {{ rel_name }}: Mapped[List["{{ rel.target_model }}"]] = relationship(back_populates="{{ rel.backref }}")
+    {% endif %}
+    {% endfor %}

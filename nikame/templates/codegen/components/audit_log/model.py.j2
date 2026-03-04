@@ -1,0 +1,28 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from datetime import datetime
+from typing import Any, Dict
+import json
+from sqlalchemy import Column, Integer, String, DateTime, JSON
+from app.db.base import Base
+
+class AuditLog(Base):
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    table_name = Column(String, index=True)
+    row_id = Column(String, index=True)
+    action = Column(String)  # 'CREATE', 'UPDATE', 'DELETE'
+    changed_data = Column(JSON)
+    user_id = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+
+async def log_change(db, table, row_id, action, data, user_id=None):
+    log = AuditLog(
+        table_name=table,
+        row_id=str(row_id),
+        action=action,
+        changed_data=data,
+        user_id=user_id
+    )
+    db.add(log)
+    await db.flush()

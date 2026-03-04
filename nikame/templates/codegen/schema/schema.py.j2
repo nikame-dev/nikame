@@ -1,0 +1,59 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Optional, List, Any
+import uuid
+from enum import Enum
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+{% for field_name, field in fields.items() if field.enum_values %}
+class {{ model_name | capitalize }}{{ field_name | capitalize }}Enum(str, Enum):
+    {% for val in field.enum_values %}
+    {{ val | upper }} = "{{ val }}"
+    {% endfor %}
+{% endfor %}
+
+
+class {{ model_name | capitalize }}Base(BaseModel):
+    {% for field_name, field in fields.items() %}
+    {% if not field.primary_key %}
+    {% if field.enum_values %}
+    {{ field_name }}: {{ "Optional[" if field.nullable }}{{ model_name | capitalize }}{{ field_name | capitalize }}Enum{{ "]" if field.nullable }}{{ " = None" if field.nullable else "" }}
+    {% else %}
+    {{ field_name }}: {{ "Optional[" if field.nullable }}{{ field.python_type }}{{ "]" if field.nullable }}{{ " = None" if field.nullable else "" }}
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+
+class {{ model_name | capitalize }}Create({{ model_name | capitalize }}Base):
+    pass
+
+
+class {{ model_name | capitalize }}Update({{ model_name | capitalize }}Base):
+    {% for field_name, field in fields.items() %}
+    {% if not field.primary_key %}
+    {% if field.enum_values %}
+    {{ field_name }}: Optional[{{ model_name | capitalize }}{{ field_name | capitalize }}Enum] = None
+    {% else %}
+    {{ field_name }}: Optional[{{ field.python_type }}] = None
+    {% endif %}
+    {% endif %}
+    {% endfor %}
+
+
+class {{ model_name | capitalize }}({{ model_name | capitalize }}Base):
+    model_config = ConfigDict(from_attributes=True)
+
+    {% for field_name, field in fields.items() %}
+    {% if field.primary_key %}
+    {{ field_name }}: {{ field.python_type }}
+    {% endif %}
+    {% endfor %}
+    
+    {% if soft_delete %}
+    deleted_at: Optional[datetime] = None
+    {% endif %}

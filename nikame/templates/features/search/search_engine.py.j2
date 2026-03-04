@@ -1,0 +1,9 @@
+from typing import Any, List
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+def search_users(db: Session, query: str) -> List[Any]:
+    """Simple full-text search example using Postgres."""
+    # This is a basic example; in production, use GIN indexes and tsvector
+    sql = text("SELECT * FROM users WHERE email ILIKE :query")
+    return db.execute(sql, {"query": f"%{query}%"}).fetchall()

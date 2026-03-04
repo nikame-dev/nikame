@@ -1,0 +1,42 @@
+import emails
+from emails.template import JinjaTemplate
+from typing import Any, Dict, Optional
+
+class EmailService:
+    """Service to send transactional emails."""
+
+    def __init__(
+        self,
+        smtp_host: str,
+        smtp_port: int,
+        smtp_user: Optional[str],
+        smtp_password: Optional[str],
+        emails_from_email: str,
+        emails_from_name: str,
+    ):
+        self.smtp_host = smtp_host
+        self.smtp_port = smtp_port
+        self.smtp_user = smtp_user
+        self.smtp_password = smtp_password
+        self.emails_from_email = emails_from_email
+        self.emails_from_name = emails_from_name
+
+    def send_email(
+        self,
+        email_to: str,
+        subject: str = "",
+        html_content: str = "",
+    ) -> None:
+        """Send a single email."""
+        message = emails.Message(
+            subject=subject,
+            html=html_content,
+            mail_from=(self.emails_from_name, self.emails_from_email),
+        )
+        smtp_options = {"host": self.smtp_host, "port": self.smtp_port}
+        if self.smtp_user:
+            smtp_options["user"] = self.smtp_user
+            smtp_options["password"] = self.smtp_password
+        
+        response = message.send(to=email_to, smtp=smtp_options)
+        return response

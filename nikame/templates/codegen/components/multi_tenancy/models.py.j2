@@ -1,0 +1,22 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from typing import Optional
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import String, ForeignKey, Integer
+from app.db.base import Base
+
+class Organization(Base):
+    __tablename__ = "organizations"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    name: Mapped[str] = mapped_column(String, unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String, unique=True, index=True)
+
+class TenantBase(Base):
+    """Abstract base class for multi-tenant models."""
+    __abstract__ = True
+    
+    org_id: Mapped[int] = mapped_column(ForeignKey("organizations.id"), index=True)
+
+    @property
+    def organization(self):
+        return relationship("Organization")

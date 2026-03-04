@@ -1,0 +1,28 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+import time
+from fastapi import Request, HTTPException
+import redis.asyncio as redis
+
+class RateLimiter:
+    def __init__(self, redis_url: str, limit: int = 100, window: int = 60):
+        self.redis = redis.from_url(redis_url)
+        self.limit = limit
+        self.window = window
+
+    async def is_allowed(self, key: str) -> bool:
+        now = int(time.time())
+        pipe = self.redis.pipeline()
+        # Use a sliding window with sorted sets
+        pipe.zremrangebyscore(key, 0, now - self.window)
+        pipe.zadd(key, {str(now): now})
+        pipe.zcard(key)
+        pipe.expire(key, self.window)
+        results = await pipe.execute()
+        
+        count = results[2]
+        return count <= self.limit
+
+# Middleware or Dependency usage:
+# limiter = RateLimiter("redis://redis:6379/0")
+# if not await limiter.is_allowed(request.client.host):
+#     raise HTTPException(429, "Too Many Requests")

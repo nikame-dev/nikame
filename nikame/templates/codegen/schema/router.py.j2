@@ -1,0 +1,99 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from typing import List, Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, func
+
+from app.db.session import get_db
+from app.models.{{ model_name | lower }} import {{ model_name | capitalize }}
+from app.schemas.{{ model_name | lower }} import (
+    {{ model_name | capitalize }} as {{ model_name | capitalize }}Schema,
+    {{ model_name | capitalize }}Create,
+    {{ model_name | capitalize }}Update,
+)
+
+router = APIRouter(prefix="/{{ table_name }}", tags=["{{ model_name | capitalize }}"])
+
+
+@router.post("/", response_model={{ model_name | capitalize }}Schema)
+async def create_{{ model_name | lower }}(
+    obj_in: {{ model_name | capitalize }}Create, db: AsyncSession = Depends(get_db)
+):
+    db_obj = {{ model_name | capitalize }}(**obj_in.model_dump())
+    db.add(db_obj)
+    await db.commit()
+    await db.refresh(db_obj)
+    return db_obj
+
+
+@router.get("/", response_model=List[{{ model_name | capitalize }}Schema])
+async def read_{{ model_name | lower }}s(
+    skip: int = 0,
+    limit: int = 100,
+    sort_by: Optional[str] = "{{ primary_key }}",
+    {% for field_name, field in fields.items() if field.searchable %}
+    {{ field_name }}: Optional[{{ field.python_type }}] = None,
+    {% endfor %}
+    db: AsyncSession = Depends(get_db),
+):
+    query = select({{ model_name | capitalize }})
+    {% if soft_delete %}
+    query = query.where({{ model_name | capitalize }}.deleted_at == None)
+    {% endif %}
+    
+    {% for field_name, field in fields.items() if field.searchable %}
+    if {{ field_name }} is not None:
+        query = query.where({{ model_name | capitalize }}.{{ field_name }} == {{ field_name }})
+    {% endfor %}
+    
+    if sort_by:
+        query = query.order_by(getattr({{ model_name | capitalize }}, sort_by))
+        
+    result = await db.execute(query.offset(skip).limit(limit))
+    return result.scalars().all()
+
+
+@router.get("/{id}", response_model={{ model_name | capitalize }}Schema)
+async def read_{{ model_name | lower }}(id: Any, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select({{ model_name | capitalize }}).where({{ model_name | capitalize }}.id == id))
+    db_obj = result.scalar_one_or_none()
+    if not db_obj{% if soft_delete %} or db_obj.deleted_at{% endif %}:
+        raise HTTPException(status_code=404, detail="{{ model_name | capitalize }} not found")
+    return db_obj
+
+
+@router.put("/{id}", response_model={{ model_name | capitalize }}Schema)
+async def update_{{ model_name | lower }}(
+    id: Any, obj_in: {{ model_name | capitalize }}Update, db: AsyncSession = Depends(get_db)
+):
+    result = await db.execute(select({{ model_name | capitalize }}).where({{ model_name | capitalize }}.id == id))
+    db_obj = result.scalar_one_or_none()
+    if not db_obj{% if soft_delete %} or db_obj.deleted_at{% endif %}:
+        raise HTTPException(status_code=404, detail="{{ model_name | capitalize }} not found")
+    
+    update_data = obj_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
+    
+    db.add(db_obj)
+    await db.commit()
+    await db.refresh(db_obj)
+    return db_obj
+
+
+@router.delete("/{id}")
+async def delete_{{ model_name | lower }}(id: Any, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select({{ model_name | capitalize }}).where({{ model_name | capitalize }}.id == id))
+    db_obj = result.scalar_one_or_none()
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="{{ model_name | capitalize }} not found")
+    
+    {% if soft_delete %}
+    from datetime import datetime
+    db_obj.deleted_at = datetime.utcnow()
+    db.add(db_obj)
+    {% else %}
+    await db.delete(db_obj)
+    {% endif %}
+    await db.commit()
+    return {"status": "success"}

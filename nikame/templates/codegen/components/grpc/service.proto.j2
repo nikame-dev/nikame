@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package {{ project_name }};
+
+service {{ model_name }}Service {
+  rpc Get{{ model_name }}s (Get{{ model_name }}sRequest) returns (Get{{ model_name }}sResponse);
+  rpc Create{{ model_name }} (Create{{ model_name }}Request) returns ({{ model_name }});
+}
+
+message {{ model_name }} {
+  {% for field_name, field in fields.items() %}
+  {{ proto_types[field.type] | default("string") }} {{ field_name }} = {{ loop.index }};
+  {% endfor %}
+}
+
+message Get{{ model_name }}sRequest {}
+
+message Get{{ model_name }}sResponse {
+  repeated {{ model_name }} items = 1;
+}
+
+message Create{{ model_name }}Request {
+  {% for field_name, field in fields.items() if not field.primary_key %}
+  {{ proto_types[field.type] | default("string") }} {{ field_name }} = {{ loop.index }};
+  {% endfor %}
+}

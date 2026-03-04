@@ -1,0 +1,15 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from fastapi import APIRouter, Request
+from sse_starlette.sse import EventSourceResponse
+from app.sse.manager import sse_manager
+
+router = APIRouter(prefix="/events", tags=["Events"])
+
+@router.get("/stream")
+async def stream_events(request: Request):
+    return EventSourceResponse(sse_manager.subscribe())
+
+@router.post("/broadcast")
+async def broadcast_event(message: str):
+    await sse_manager.broadcast(message)
+    return {"status": "broadcasted"}

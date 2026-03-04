@@ -1,0 +1,103 @@
+name: production-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  packages: write
+  pull-requests: write
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          
+      - name: Install Linting Tools
+        run: pip install ruff mypy
+          
+      - name: Ruff Check
+        run: ruff check .
+        
+      - name: Mypy Check
+        run: mypy .
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Secret Scanning (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
+
+      - name: Dependency Scan (pip-audit)
+        run: |
+          pip install pip-audit
+          if [ -f requirements.txt ]; then pip-audit -r requirements.txt; fi
+
+  test:
+    needs: quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run Tests with Coverage
+        run: |
+          pip install pytest pytest-cov -r requirements.txt
+          pytest --cov=./ --cov-report=xml
+          
+      - name: Post Coverage Comment
+        if: github.event_name == 'pull_request'
+        uses: orgoro/coverage@v3.2
+        with:
+            path: coverage.xml
+            token: ${{ secrets.GITHUB_TOKEN }}
+            threshold: 80
+
+  build:
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build and Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository }}:latest,ghcr.io/${{ github.repository }}:${{ github.sha }}
+
+  deploy-notify:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ArgoCD Sync
+        if: env.ARGOCD_WEBHOOK
+        run: curl -X POST ${{ secrets.ARGOCD_WEBHOOK }}
+        env:
+          ARGOCD_WEBHOOK: ${{ secrets.ARGOCD_WEBHOOK }}

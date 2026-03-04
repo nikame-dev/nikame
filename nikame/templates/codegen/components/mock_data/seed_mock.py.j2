@@ -1,0 +1,24 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+import asyncio
+from faker import Faker
+from app.db.session import SessionLocal
+from app.models import {% for model_name in models %}{{ model_name | lower }}{% if not loop.last %}, {% endif %}{% endfor %} as models
+
+fake = Faker()
+
+async def generate_mock_data(count: int = 10):
+    async with SessionLocal() as session:
+        {% for name, model in models.items() %}
+        print(f"Generating {count} mock {{ name }}s...")
+        for _ in range(count):
+            item = models.{{ name }}(
+                {% for f_name, f_ctx in model.fields.items() %}
+                {{ f_name }}={% if f_ctx.type == 'str' %}fake.word(){% elif f_ctx.type == 'email' %}fake.email(){% elif f_ctx.type == 'text' %}fake.paragraph(){% elif f_ctx.type == 'int' %}fake.random_int(0, 100){% elif f_ctx.type == 'float' %}fake.pyfloat(right_digits=2, positive=True, min_value=1, max_value=1000){% elif f_ctx.type == 'bool' %}fake.boolean(){% else %}None{% endif %},
+                {% endfor %}
+            )
+            session.add(item)
+        {% endfor %}
+        await session.commit()
+
+if __name__ == "__main__":
+    asyncio.run(generate_mock_data())

@@ -1,0 +1,17 @@
+name: verify_production
+description: Production verification project
+environment:
+  target: aws
+  cloud: aws
+  resource_tier: large
+  domain: example.com
+
+modules:
+  - api.fastapi
+  - database.postgres
+  - database.redis
+  - storage.minio
+
+features:
+  - cron_jobs
+  - rate_limiting

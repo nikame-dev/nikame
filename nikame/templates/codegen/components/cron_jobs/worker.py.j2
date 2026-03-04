@@ -1,0 +1,29 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from celery import Celery
+from celery.schedules import crontab
+
+celery_app = Celery(
+    "worker",
+    broker="redis://redis:6379/0",
+    backend="redis://redis:6379/0"
+)
+
+celery_app.conf.task_routes = {
+    "app.worker.test_task": "main-queue",
+}
+
+celery_app.conf.beat_schedule = {
+    "run-every-morning": {
+        "task": "app.worker.scheduled_task",
+        "schedule": crontab(hour=7, minute=30),
+    },
+}
+
+@celery_app.task
+def test_task(name: str):
+    return f"Hello {name}"
+
+@celery_app.task
+def scheduled_task():
+    print("Running scheduled task...")
+    return "Done"

@@ -1,0 +1,33 @@
+from fastapi import APIRouter, UploadFile, File, Depends, HTTPException
+from typing import Any
+import os
+
+from .service import FileUploadService
+from ..auth import dependencies, models as auth_models
+
+router = APIRouter()
+
+def get_file_service() -> FileUploadService:
+    # These would typically come from config/env
+    return FileUploadService(
+        endpoint_url=os.getenv("S3_ENDPOINT", "http://minio:9000"),
+        access_key=os.getenv("MINIO_ROOT_USER", "minioadmin"),
+        secret_key=os.getenv("MINIO_ROOT_PASSWORD", "minioadmin"),
+        bucket_name=os.getenv("S3_BUCKET", "uploads"),
+    )
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    current_user: auth_models.User = Depends(dependencies.get_current_active_user),
+    service: FileUploadService = Depends(get_file_service),
+) -> Any:
+    """Upload a file to object storage."""
+    content = await file.read()
+    object_name = f"user_{current_user.id}/{file.filename}"
+    service.upload_file(content, object_name, content_type=file.content_type)
+    
+    return {
+        "filename": file.filename,
+        "url": service.generate_presigned_url(object_name)
+    }

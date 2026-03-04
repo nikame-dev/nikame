@@ -1,0 +1,22 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from typing import List
+import asyncio
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import SessionLocal
+
+{% for model_name in models %}
+from app.models.{{ model_name | lower }} import {{ model_name | capitalize }}
+{% endfor %}
+
+async def seed_data():
+    async with SessionLocal() as session:
+        # User: Add seed logic here
+        print("Seeding database...")
+        # Example:
+        # prod = Product(name="Nikame Shirt", price=29.99, stock=100)
+        # session.add(prod)
+        await session.commit()
+        print("Done.")
+
+if __name__ == "__main__":
+    asyncio.run(seed_data())

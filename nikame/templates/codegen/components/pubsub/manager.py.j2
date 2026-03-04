@@ -1,0 +1,26 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+import redis.asyncio as redis
+import json
+from typing import Callable, Any
+
+class PubSubManager:
+    def __init__(self, redis_url: str):
+        self.redis = redis.from_url(redis_url)
+
+    async def publish(self, channel: str, message: dict):
+        await self.redis.publish(channel, json.dumps(message))
+
+    async def subscribe(self, channel: str, callback: Callable[[dict], Any]):
+        pubsub = self.redis.pubsub()
+        await pubsub.subscribe(channel)
+        try:
+            async for message in pubsub.listen():
+                if message['type'] == 'message':
+                    data = json.loads(message['data'])
+                    await callback(data)
+        finally:
+            await pubsub.unsubscribe(channel)
+            await pubsub.close()
+
+# In app/core/deps.py or similar, initialize with context:
+# pubsub = PubSubManager(settings.REDIS_URL)
