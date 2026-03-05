@@ -152,8 +152,10 @@ def _generate_project(
             try:
                 generator = codegen_cls(temp_ctx, config)
                 w = generator.wiring()
-                if w:
-                    blueprint.ctx.wiring[feature_name] = w
+                if w and blueprint.modules:
+                    # Inject wiring into the shared ModuleContext
+                    # All modules share the same ctx instance
+                    blueprint.modules[0].ctx.wiring[feature_name] = w
             except Exception as exc:
                 console.print(f"[warning]⚠ Could not extract wiring for '{feature_name}': {exc}[/warning]")
 
@@ -285,7 +287,7 @@ def _write_prometheus_configs(
                 }
             ]
         }
-        writer.write_yaml("configs/prometheus/rules/nikame_alerts.yml", rules_yaml)
+        writer.write_yaml("infra/configs/prometheus/rules/nikame_alerts.yml", rules_yaml)
 
         # Also write a basic prometheus.yml
         scrape_configs: list[dict[str, Any]] = [

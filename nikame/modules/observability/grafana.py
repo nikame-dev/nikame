@@ -44,8 +44,8 @@ class GrafanaModule(BaseModule):
                 "ports": ["3000:3000"] if self.ctx.environment == "local" else [],
                 "volumes": [
                     "grafana_data:/var/lib/grafana",
-                    "../configs/grafana/provisioning/:/etc/grafana/provisioning/:ro",
-                    "../configs/grafana/dashboards/:/var/lib/grafana/dashboards/:ro",
+                    "./configs/grafana/provisioning/:/etc/grafana/provisioning/:ro",
+                    "./configs/grafana/dashboards/:/var/lib/grafana/dashboards/:ro",
                 ],
                 "depends_on": {"prometheus": {"condition": "service_healthy"}},
                 "healthcheck": self.health_check(),
