@@ -99,7 +99,33 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
     if build: cmd.append("--build")
     if service: cmd.extend(service)
 
-    subprocess.run(cmd, check=True, cwd=str(project_dir))
+    # Validate volume paths before starting to avoid cryptic Docker errors
+    volumes_to_check = [
+        ("infra/configs/prometheus/prometheus.yml", "Prometheus config"),
+        ("infra/configs/prometheus/alertmanager.yml", "Alertmanager config"),
+        ("infra/configs/grafana/provisioning", "Grafana provisioning dir"),
+    ]
+    
+    for rel_path, label in volumes_to_check:
+        full_path = project_dir / rel_path
+        if not full_path.exists():
+            console.print(f"[warning]⚠ {label} missing at {rel_path}. Service may fail to start.[/warning]")
+
+    try:
+        subprocess.run(cmd, check=True, cwd=str(project_dir))
+    except subprocess.CalledProcessError as e:
+        console.print("\n[error]✗ Docker Compose failed to start services.[/error]")
+        
+        # Check for specific common Docker errors
+        if "not a directory" in str(e) or "mount" in str(e).lower():
+            console.print("\n[tip]💡 Potential Fix:[/tip]")
+            console.print("This usually happens when Docker tries to mount a file that doesn't exist yet, ")
+            console.print("and creates a directory instead. Try these steps:")
+            console.print("1. [bold]rm -rf configs/[/bold] (if empty) or delete the offending directory.")
+            console.print("2. Run [bold]nikame regenerate[/bold] to recreate missing config files.")
+            console.print("3. Ensure you are on the latest version: [bold]pip install --upgrade nikame[/bold]")
+        
+        raise SystemExit(1)
 
 def _up_k8s(project_dir: Path) -> None:
     k8s_dir = project_dir / "infra" / "kubernetes"
