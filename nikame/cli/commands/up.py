@@ -66,8 +66,9 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
         raise SystemExit(1)
 
-    import yaml
     import questionary
+    import yaml
+
     from nikame.utils.docker import find_conflicting_containers, stop_containers
 
     with open(compose_file) as f:

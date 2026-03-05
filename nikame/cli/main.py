@@ -12,8 +12,8 @@ from nikame import __version__
 from nikame.cli.commands.add import add
 from nikame.cli.commands.destroy import destroy
 from nikame.cli.commands.diff import diff
-from nikame.cli.commands.github import github
 from nikame.cli.commands.down import down
+from nikame.cli.commands.github import github
 from nikame.cli.commands.init import init
 from nikame.cli.commands.login import login, logout, whoami
 from nikame.cli.commands.ml import ml_group

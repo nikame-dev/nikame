@@ -314,7 +314,7 @@ async def lifespan(app: FastAPI):
     try:
         # Test DB connection
         async with db_engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))  # noqa: S608
         print("✓ Database connection verified")
     except Exception as e:
         print(f"⚠ Database connection failed: {{e}}")
@@ -349,7 +349,7 @@ from sqlalchemy import text
 @app.get("/")
 async def root():
     return {{"message": f"Welcome to {{settings.APP_NAME}}", "env": settings.APP_ENV}}
-'''
+'''  # noqa: S608
         files.append(("app/main.py", main_py))
 
         # Ensure feature folders have __init__.py if they are being registered
@@ -360,6 +360,8 @@ async def root():
                 files.append(("app/storage/__init__.py", ""))
             elif feature == "profiles":
                 files.append(("app/profiles/__init__.py", ""))
+
+        settings_block = "".join([f"    {field}\n" for wiring in self.ctx.wiring.values() for field in wiring.settings_fields])
 
         # 2. services/api/config.py
         config_py = f'''"""
@@ -372,7 +374,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     APP_NAME: str = "{project}"
     APP_ENV: str = "local"
-    CORS_ORIGINS: List[str] = ["*"]
+    CORS_ORIGINS: list[str] = ["*"]
 
     # Database
     DATABASE_URL: str = "{self.ctx.all_env_vars.get('DATABASE_URL', '')}"
@@ -380,7 +382,7 @@ class Settings(BaseSettings):
     # Cache
     CACHE_URL: str = "{self.ctx.all_env_vars.get('CACHE_URL', self.ctx.all_env_vars.get('REDIS_URL', ''))}"
 
-{"".join([f"    {field}\n" for wiring in self.ctx.wiring.values() for field in wiring.settings_fields])}
+{settings_block}
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
@@ -472,7 +474,7 @@ async def get_db():
 
         # 5. app/core/cache.py
         if has_cache:
-            cache_py = f'''"""
+            cache_py = '''"""
 Redis/Dragonfly client configuration.
 """
 
@@ -539,7 +541,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--pro
                 reqs.extend(wiring.requirements)
         
         # Rewrite requirements with all dependencies
-        files[-1] = ("app/requirements.txt", "\n".join(sorted(list(set(reqs)))) + "\n")
+        files[-1] = ("app/requirements.txt", "\n".join(sorted(set(reqs))) + "\n")
 
         # 8. app/.dockerignore
         dockerignore = """

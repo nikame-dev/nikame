@@ -314,7 +314,7 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
             if conflict_name in active_module_configs:
                 raise NikameModuleConflictError(
                     f"Module '{mod_name}' conflicts with '{conflict_name}'. "
-                    f"Remove one of them from your config."
+                    "Remove one of them from your config."
                 )
 
     # Step 4: Detect cycles

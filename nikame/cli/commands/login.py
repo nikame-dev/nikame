@@ -60,7 +60,7 @@ def login() -> None:
     # 1. Generate Auth URL
     scopes = "repo workflow admin:org"
     auth_url = (
-        f"https://github.com/login/oauth/authorize?"
+        "https://github.com/login/oauth/authorize?"
         f"client_id={GITHUB_CLIENT_ID}&"
         f"redirect_uri={REDIRECT_URI}&"
         f"scope={scopes}"

@@ -2,10 +2,10 @@ from pathlib import Path
 
 import click
 
+from nikame.cli.commands.init import _generate_project
 from nikame.codegen.schema_codegen import SchemaCodegen
 from nikame.config.loader import load_config
 from nikame.utils.logger import console
-from nikame.cli.commands.init import _generate_project
 
 
 @click.command(name="regenerate")
