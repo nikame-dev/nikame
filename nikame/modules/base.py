@@ -40,6 +40,7 @@ class ModuleContext:
     resource_tier: str = "medium"
     all_env_vars: dict[str, str] = field(default_factory=dict)
     features: list[str] = field(default_factory=list)
+    wiring: dict[str, Any] = field(default_factory=dict)
 
 
 class BaseModule(ABC):

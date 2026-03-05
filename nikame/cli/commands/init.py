@@ -99,6 +99,28 @@ def _generate_project(
     with console.status("[info]Resolving module dependencies...[/info]"):
         blueprint = build_blueprint(config)
 
+    # Step 2.5: Collect component wiring (imports, routers, etc.)
+    # This must happen BEFORE scaffolding so the API module can use it.
+    discover_codegen()
+    for feature_name in config.features:
+        # Check both registries (features and components)
+        codegen_cls = get_codegen_class(feature_name)
+        if codegen_cls:
+            # Create a temporary context for wiring extraction
+            # Requirements and wiring are static-ish or only depend on basic ctx
+            temp_ctx = CodegenContext(
+                project_name=config.name,
+                active_modules=[m.NAME for m in blueprint.modules],
+                features=config.features
+            )
+            try:
+                generator = codegen_cls(temp_ctx, config)
+                w = generator.wiring()
+                if w:
+                    blueprint.ctx.wiring[feature_name] = w
+            except Exception as exc:
+                console.print(f"[warning]⚠ Could not extract wiring for '{feature_name}': {exc}[/warning]")
+
     # Step 3: Set up file writer
     writer = FileWriter(output_dir, dry_run=dry_run)
 
@@ -134,7 +156,6 @@ def _generate_project(
             SchemaCodegen(config).generate(output_dir)
 
     # Step 12: Advanced Components (NEW)
-    from nikame.codegen.base import CodegenContext
     
     ctx = CodegenContext(
         project_name=config.name,
@@ -149,8 +170,16 @@ def _generate_project(
             with console.status(f"[info]Generating {comp_info['name']}...[/info]"):
                 generator = comp_info["class"](ctx, config)
                 files = generator.generate()
+                # Ensure the app directory exists as a package
+                writer.write_file("services/api/app/__init__.py", "")
+                
                 for path, content in files:
-                    writer.write_file(path, content)
+                    # Redirect 'app/' to 'services/api/' for unified build context
+                    if path.startswith("app/"):
+                        target_path = f"services/api/{path}"
+                    else:
+                        target_path = path
+                    writer.write_file(target_path, content)
 
     # Step 10: Environment files
     _write_env_files(blueprint, writer)
@@ -407,6 +436,11 @@ def _generate_features(
 
         # Check module dependencies
         missing_mods = [m for m in codegen_cls.MODULE_DEPENDENCIES if m not in active_module_names]
+        
+        # Special case: dragonfly satisfies redis dependency
+        if "redis" in missing_mods and "dragonfly" in active_module_names:
+            missing_mods.remove("redis")
+
         if missing_mods:
             console.print(f"[warning]Feature '{feature_name}' requires modules {missing_mods} which are missing. Skipping.[/warning]")
             continue

@@ -21,7 +21,7 @@ class TempoModule(BaseModule):
             "tempo": {
                 "image": f"grafana/tempo:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["3200:3200", "4317:4317"],
+                "ports": ["3200:3200"],
                 "command": "-config.file=/etc/tempo.yaml",
                 "networks": [f"{self.ctx.project_name}_network"],
                 "healthcheck": self.health_check(),

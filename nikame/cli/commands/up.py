@@ -66,6 +66,29 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
         raise SystemExit(1)
 
+    import yaml
+    import questionary
+    from nikame.utils.docker import find_conflicting_containers, stop_containers
+
+    with open(compose_file) as f:
+        try:
+            compose_data = yaml.safe_load(f)
+            conflicts = find_conflicting_containers(compose_data)
+            if conflicts:
+                console.print(f"[warning]⚠ Found {len(conflicts)} conflicting containers already running on host ports.[/warning]")
+                for c in conflicts:
+                    console.print(f"  - [key]{c.name}[/key] (image: {c.image.tags[0] if c.image.tags else 'unknown'})")
+                
+                if questionary.confirm("Would you like to stop these containers to proceed?").ask():
+                    with console.status("[info]Stopping conflicting containers...[/info]"):
+                        stop_containers(conflicts)
+                    console.print("[success]✓ Conflicting containers stopped successfully.[/success]\n")
+                else:
+                    console.print("[error]✗ Port conflict detected. Aborting.[/error]")
+                    raise SystemExit(1)
+        except Exception as exc:
+            console.print(f"[warning]⚠ Could not check for port conflicts: {exc}[/warning]")
+
     console.print("[success]🚀 Starting Local Services (Docker Compose)...[/success]\n")
     cmd = ["docker", "compose", "-f", str(compose_file)]
     env_file = project_dir / ".env.generated"

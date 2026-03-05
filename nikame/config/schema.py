@@ -170,11 +170,19 @@ class KeycloakConfig(BaseModel):
     realms: list[RealmConfig] = Field(default_factory=lambda: [RealmConfig()])
 
 
+class PostgresAuthConfig(BaseModel):
+    """PostgreSQL-specific authentication configuration."""
+
+    jwt_secret: str = "super-secret-key"
+    token_expiry: int = 3600
+
+
 class AuthConfig(BaseModel):
     """Authentication provider configuration."""
 
-    provider: Literal["keycloak", "authentik", "vault"] = "keycloak"
+    provider: Literal["keycloak", "authentik", "vault", "postgres"] = "keycloak"
     keycloak: KeycloakConfig = Field(default_factory=KeycloakConfig)
+    postgres: PostgresAuthConfig = Field(default_factory=PostgresAuthConfig)
 
 
 # ──────────────────────────── Gateway ────────────────────────────
