@@ -188,6 +188,15 @@ class RedPandaModule(BaseModule):
             ],
         }
 
+    def prometheus_scrape_targets(self) -> list[dict[str, Any]]:
+        """Return Prometheus scrape configurations for RedPanda."""
+        return [
+            {
+                "job_name": "redpanda",
+                "static_configs": [{"targets": ["redpanda:9644"]}],
+            }
+        ]
+
     def compute_cost_monthly_usd(self) -> float | None:
         """Estimate monthly cost."""
         return 30.0 * self.brokers

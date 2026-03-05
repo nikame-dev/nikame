@@ -22,14 +22,22 @@ class LokiModule(BaseModule):
                 "image": f"grafana/loki:{self.version}",
                 "restart": "unless-stopped",
                 "ports": ["3100:3100"],
-                "command": "-config.file=/etc/loki/local-config.yaml",
+                "command": ["-config.file=/etc/loki/local-config.yaml"],
+                "volumes": [
+                    "./configs/loki/local-config.yaml:/etc/loki/local-config.yaml:ro",
+                    "loki_data:/loki",
+                ],
                 "networks": [f"{self.ctx.project_name}_network"],
                 "healthcheck": self.health_check(),
+                "labels": {
+                    "nikame.module": "loki",
+                    "nikame.category": "observability",
+                },
             }
         }
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
-        """K8s Deployment for Loki."""
+        """K8s Deployment and ConfigMap for Loki."""
         return [
             {
                 "apiVersion": "apps/v1",
@@ -45,13 +53,43 @@ class LokiModule(BaseModule):
                                     "name": "loki",
                                     "image": f"grafana/loki:{self.version}",
                                     "ports": [{"containerPort": 3100}],
+                                    "volumeMounts": [{"name": "config", "mountPath": "/etc/loki/local-config.yaml", "subPath": "local-config.yaml"}]
                                 }
-                            ]
+                            ],
+                            "volumes": [{"name": "config", "configMap": {"name": "loki-config"}}]
                         },
                     },
                 },
             }
         ]
+
+    def init_scripts(self) -> list[tuple[str, str]]:
+        """Default configuration for Loki."""
+        config = """
+auth_enabled: false
+server:
+  http_listen_port: 3100
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+"""
+        return [("local-config.yaml", config.strip())]
 
     def health_check(self) -> dict[str, Any]:
         """Loki health check."""
@@ -65,3 +103,4 @@ class LokiModule(BaseModule):
     def env_vars(self) -> dict[str, str]:
         """Expose LOKI_URL."""
         return {"LOKI_URL": "http://loki:3100"}
+

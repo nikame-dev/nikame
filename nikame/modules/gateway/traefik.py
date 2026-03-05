@@ -75,9 +75,13 @@ class TraefikModule(BaseModule):
                 "labels": {
                     "nikame.module": "traefik",
                     "nikame.category": "gateway",
+                    "traefik.enable": "true",
+                    "traefik.http.routers.dashboard.rule": "Host(`dashboard.localhost`) || (Host(`localhost`) && PathPrefix(`/dashboard`))",
+                    "traefik.http.routers.dashboard.service": "api@internal",
                 },
             }
         }
+
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Generate K8s Deployment + Service + IngressClass for Traefik."""
@@ -193,6 +197,15 @@ class TraefikModule(BaseModule):
                 {"title": "Active Connections", "type": "gauge", "targets": [{"expr": "traefik_entrypoint_open_connections"}]},
             ],
         }
+
+    def prometheus_scrape_targets(self) -> list[dict[str, Any]]:
+        """Return Prometheus scrape configurations for Traefik."""
+        return [
+            {
+                "job_name": "traefik",
+                "static_configs": [{"targets": ["traefik:8080"]}],
+            }
+        ]
 
     def compute_cost_monthly_usd(self) -> float | None:
         """Estimate — Traefik itself is free, just compute cost."""

@@ -130,6 +130,14 @@ class BaseModule(ABC):
         """
         return []
 
+    def prometheus_scrape_targets(self) -> list[dict[str, Any]]:
+        """Return Prometheus scrape configurations for this module.
+        
+        Returns:
+            List of dicts following the Prometheus scrape_config schema.
+        """
+        return []
+
     def scaffold_files(self) -> list[tuple[str, str]]:
         """Return application scaffold files for this module.
 

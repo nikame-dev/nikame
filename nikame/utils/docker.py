@@ -74,10 +74,39 @@ def find_conflicting_containers(compose_data: dict[str, Any]) -> list[Any]:
 
 
 def stop_containers(containers: list[Any]) -> None:
-    """Stop a list of Docker containers.
-
-    Args:
-        containers: List of Docker container objects.
-    """
+    """Stop a list of Docker containers."""
     for container in containers:
         container.stop()
+
+
+def get_project_containers(project_name: str) -> list[Any]:
+    """Get all containers belonging to a specific NIKAME project.
+    
+    Args:
+        project_name: The NIKAME project name.
+        
+    Returns:
+        List of Docker container objects.
+    """
+    client = docker.from_env()
+    return client.containers.list(
+        all=True,
+        filters={"label": [f"com.docker.compose.project={project_name}"]}
+    )
+
+
+def get_container_logs(container: Any, tail: int = 20) -> str:
+    """Get the last N lines of logs from a container.
+    
+    Args:
+        container: Docker container object.
+        tail: Number of lines to return.
+        
+    Returns:
+        String containing the logs.
+    """
+    try:
+        logs = container.logs(tail=tail).decode("utf-8")
+        return logs
+    except Exception as e:
+        return f"Could not retrieve logs: {e}"

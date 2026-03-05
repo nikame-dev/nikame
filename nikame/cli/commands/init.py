@@ -297,11 +297,25 @@ def _write_prometheus_configs(
             },
         ]
         for module in blueprint.modules:
-            if module.NAME != "prometheus":
+            # 1. Custom targets from module
+            targets = module.prometheus_scrape_targets()
+            if targets:
+                scrape_configs.extend(targets)
+            
+            # 2. Default target if it looks like a Prometheus-compatible service
+            # and doesn't already have custom targets defined
+            elif module.NAME in ["prometheus", "alertmanager"]:
                 scrape_configs.append(
                     {
                         "job_name": module.NAME,
                         "static_configs": [{"targets": [f"{module.NAME}:9090"]}],
+                    }
+                )
+            elif module.NAME == "api":
+                scrape_configs.append(
+                    {
+                        "job_name": "api",
+                        "static_configs": [{"targets": ["api:8000"]}],
                     }
                 )
 

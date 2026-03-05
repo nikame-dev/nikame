@@ -113,6 +113,10 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
 
     try:
         subprocess.run(cmd, check=True, cwd=str(project_dir))
+        
+        # Priority 5: Health Check Verification
+        _verify_health(config.name)
+        
     except subprocess.CalledProcessError as e:
         console.print("\n[error]✗ Docker Compose failed to start services.[/error]")
         
@@ -126,6 +130,70 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
             console.print("3. Ensure you are on the latest version: [bold]pip install --upgrade nikame[/bold]")
         
         raise SystemExit(1)
+
+def _verify_health(project_name: str) -> None:
+    """Run health checks on all project containers and print status table."""
+    from rich.table import Table
+    from nikame.utils.docker import get_project_containers, get_container_logs
+    import time
+    
+    with console.status("[info]Verifying service health... (waiting 5s for startup)[/info]"):
+        time.sleep(5)
+        containers = get_project_containers(project_name)
+    
+    if not containers:
+        console.print("[warning]⚠ No containers found for this project.[/warning]")
+        return
+
+    table = Table(title=f"Service Status: {project_name}")
+    table.add_column("Service", style="cyan")
+    table.add_column("Status", style="bold")
+    table.add_column("Health", style="bold")
+    table.add_column("Endpoint/Port", style="green")
+
+    unhealthy_containers = []
+
+    for container in containers:
+        name = container.name.split("-")[-2] if "-" in container.name else container.name
+        status = container.status
+        health = container.attrs.get("State", {}).get("Health", {}).get("Status", "N/A")
+        
+        # Color coding
+        status_color = "green" if status == "running" else "red"
+        health_color = "green" if health in ["healthy", "N/A"] else "yellow" if health == "starting" else "red"
+        
+        # Get ports
+        ports = container.attrs.get("NetworkSettings", {}).get("Ports", {})
+        port_info = []
+        for p, bindings in ports.items():
+            if bindings:
+                host_port = bindings[0].get("HostPort")
+                port_info.append(f"localhost:{host_port}")
+        
+        endpoint = ", ".join(port_info) if port_info else "internal"
+        
+        table.add_row(
+            name,
+            f"[{status_color}]{status}[/{status_color}]",
+            f"[{health_color}]{health}[/{health_color}]",
+            endpoint
+        )
+
+        if status != "running" or health == "unhealthy":
+            unhealthy_containers.append(container)
+
+    console.print("\n")
+    console.print(table)
+    
+    if unhealthy_containers:
+        console.print("\n[error]⚠ Some services are unhealthy or crashing:[/error]")
+        for c in unhealthy_containers:
+            console.print(f"\n[bold red]Logs for {c.name}:[/bold red]")
+            logs = get_container_logs(c, tail=10)
+            console.print(logs)
+            console.print("-" * 40)
+    else:
+        console.print("\n[success]✨ All services are online and healthy![/success]")
 
 def _up_k8s(project_dir: Path) -> None:
     k8s_dir = project_dir / "infra" / "kubernetes"

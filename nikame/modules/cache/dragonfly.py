@@ -34,22 +34,27 @@ class DragonflyModule(BaseModule):
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Dragonfly."""
-        return {
-            "dragonfly": {
-                "image": f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}",
-                "restart": "unless-stopped",
-                "ulimits": {"memlock": -1},
-                "command": f"--maxmemory={self.maxmemory} --cache_mode=true",
-                "ports": ["6379:6379"] if self.ctx.environment == "local" else [],
-                "volumes": ["dragonfly_data:/data"],
-                "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
-                "labels": {
-                    "nikame.module": "dragonfly",
-                    "nikame.category": "cache",
-                },
-            }
+        spec: dict[str, Any] = {
+            "image": f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}",
+            "restart": "unless-stopped",
+            "command": f"--maxmemory={self.maxmemory} --cache_mode=true",
+            "ports": ["6379:6379"] if self.ctx.environment == "local" else [],
+            "volumes": ["dragonfly_data:/data"],
+            "healthcheck": self.health_check(),
+            "networks": [f"{self.ctx.project_name}_network"],
+            "labels": {
+                "nikame.module": "dragonfly",
+                "nikame.category": "cache",
+            },
         }
+        
+        # Only add ulimits in non-local environments or if explicitly requested
+        # 'memlock' -1 often fails in local WSL/Docker environments
+        if self.ctx.environment != "local":
+            spec["ulimits"] = {"memlock": -1}
+            
+        return {"dragonfly": spec}
+
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Generate K8s StatefulSet + Service + HPA + PDB for Dragonfly."""
