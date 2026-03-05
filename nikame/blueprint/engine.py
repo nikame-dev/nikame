@@ -12,15 +12,14 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import networkx as nx  # type: ignore[import-untyped]
-from nikame.mlops.hardware import HardwareDetector
-from nikame.mlops.serving import ServingSelector
 
 from nikame.config.schema import NikameConfig
 from nikame.exceptions import (
     NikameCycleError,
-    NikameDependencyError,
     NikameModuleConflictError,
 )
+from nikame.mlops.hardware import HardwareDetector
+from nikame.mlops.serving import ServingSelector
 from nikame.modules.base import BaseModule, ModuleContext
 from nikame.modules.registry import discover_modules, get_all_modules, get_module_class
 from nikame.utils.logger import console, get_logger
@@ -43,6 +42,7 @@ class Blueprint:
     project_name: str
     modules: list[BaseModule]
     graph: nx.DiGraph  # type: ignore[type-arg]
+    config: NikameConfig | None = None
     warnings: list[str] = field(default_factory=list)
     env_vars: dict[str, str] = field(default_factory=dict)
     features: list[str] = field(default_factory=list)
@@ -67,7 +67,7 @@ class Blueprint:
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Collect and return all K8s manifests for the project."""
         all_manifests: list[dict[str, Any]] = []
-        
+
         # 1. Namespace-level resources (ResourceQuota)
         # We use a dummy instance to access the helper
         if self.modules:
@@ -94,24 +94,24 @@ class Blueprint:
 
     def _get_feature_manifests(self) -> list[dict[str, Any]]:
         """Collect manifests from active features."""
-        from nikame.codegen.registry import get_codegen_class, discover_codegen
         from nikame.codegen.base import CodegenContext
-        
+        from nikame.codegen.registry import discover_codegen, get_codegen_class
+
         manifests = []
         discover_codegen()
-        
+
         ctx = CodegenContext(
             project_name=self.project_name,
             active_modules=[m.NAME for m in self.modules],
             features=self.features
         )
-        
+
         for feature in self.features:
             cls = get_codegen_class(feature)
             if cls:
-                generator = cls(ctx)
+                generator = cls(ctx, self.config)
                 manifests.extend(generator.k8s_manifests())
-        
+
         return manifests
 
     def _generate_sealed_secrets(self) -> list[dict[str, Any]]:
@@ -121,7 +121,7 @@ class Blueprint:
         manifests = []
         # Filter for secrets (simple heuristic: contains KEY, PWD, SECRET, or PASSWORD)
         secrets = {k: v for k, v in self.env_vars.items() if any(x in k for x in ["KEY", "PWD", "SECRET", "PASSWORD", "TOKEN"])}
-        
+
         if secrets:
             manifests.append({
                 "apiVersion": "bitnami.com/v1alpha1",
@@ -132,7 +132,7 @@ class Blueprint:
                     "annotations": {"sealedsecrets.bitnami.com/managed": "true"}
                 },
                 "spec": {
-                    "encryptedData": {k: "Ag...base64_placeholder..." for k in secrets},
+                    "encryptedData": dict.fromkeys(secrets, "Ag...base64_placeholder..."),
                     "template": {
                         "metadata": {"name": "project-secrets", "labels": {"nikame.role": "secrets"}}
                     }
@@ -239,7 +239,7 @@ def _extract_active_modules(config: NikameConfig) -> dict[str, dict[str, Any]]:
             service_name = f"{model_cfg.name}"
             modules[backend] = model_cfg.model_dump()
             model_services.append(service_name)
-        
+
         # Add the unified gateway
         modules["ml-gateway"] = {"model_services": model_services}
         modules["model-downloader"] = {}
@@ -341,6 +341,7 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
         domain=config.environment.domain,
         tls_enabled=bool(config.gateway and config.gateway.tls.enabled),
         resource_tier="medium",
+        features=config.features,
     )
 
     # Step 7: Instantiate modules in sorted order
@@ -375,6 +376,7 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
         project_name=config.name,
         modules=modules,
         graph=graph,
+        config=config,
         warnings=warnings,
         env_vars=all_env_vars,
         features=config.features,

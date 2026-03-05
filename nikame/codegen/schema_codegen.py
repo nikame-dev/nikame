@@ -6,13 +6,12 @@ the full Async SQLAlchemy/Pydantic/FastAPI stack using Jinja2 templates.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader
 
-from nikame.config.schema import NikameConfig, DataModelConfig, FieldConfig
+from nikame.config.schema import DataModelConfig, FieldConfig, NikameConfig
 from nikame.utils.file_writer import FileWriter
 
 
@@ -49,15 +48,15 @@ class SchemaCodegen:
 
         for name, model_cfg in self.config.models.items():
             context = self._build_context(name, model_cfg)
-            
+
             # 1. Models
             model_content = self.env.get_template("model.py.j2").render(context)
             self.writer.write(output_dir / "app" / "models" / f"{name.lower()}.py", model_content)
-            
+
             # 2. Schemas
             schema_content = self.env.get_template("schema.py.j2").render(context)
             self.writer.write(output_dir / "app" / "schemas" / f"{name.lower()}.py", schema_content)
-            
+
             # 3. Routers
             router_content = self.env.get_template("router.py.j2").render(context)
             self.writer.write(output_dir / "app" / "api" / "v1" / "endpoints" / f"{name.lower()}.py", router_content)
@@ -75,17 +74,17 @@ class SchemaCodegen:
         fields = {}
         primary_key = "id"
         all_model_names = list(self.config.models.keys())
-        
+
         # Ensure 'id' exists if not provided
         if "id" not in cfg.fields:
             fields["id"] = self._parse_field("int", primary_key=True)
 
         processed_relationships = {}
-        
+
         # 1. Parse fields and detect relationships
         for f_name, f_val in cfg.fields.items():
             parsed_f = self._parse_field(f_val, all_model_names=all_model_names)
-            
+
             if parsed_f["is_relationship"]:
                 target_model = parsed_f["target_model"]
                 rel_type = parsed_f["rel_type"]
@@ -131,13 +130,13 @@ class SchemaCodegen:
 
         res = f_cfg.model_dump()
         res["is_relationship"] = False
-        
+
         # Handle Relationship shorthand: category: Category
         if f_type_raw in all_model_names:
             res["is_relationship"] = True
             res["target_model"] = f_type_raw
             res["rel_type"] = "many-to-one"
-        
+
         # Handle List Relationship: items: list[Product]
         elif f_type_raw.startswith("list[") and f_type_raw[5:-1] in all_model_names:
             res["is_relationship"] = True
@@ -150,14 +149,14 @@ class SchemaCodegen:
             res["enum_values"] = vals
             res["python_type"] = "str"
             res["sa_type"] = "String"
-        
+
         # Handle List Simple: images: list[str]
         elif f_type_raw.startswith("list["):
             inner_type = f_type_raw[5:-1]
             inner_ctx = self.TYPE_MAP.get(inner_type, {"py": "str", "sa": "String"})
             res["python_type"] = f"List[{inner_ctx['py']}]"
             res["sa_type"] = "JSON"
-        
+
         # Handle Standard Types
         else:
             ctx = self.TYPE_MAP.get(f_type_raw, {"py": "str", "sa": "String"})

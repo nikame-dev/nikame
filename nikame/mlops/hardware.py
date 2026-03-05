@@ -32,7 +32,7 @@ class HardwareDetector:
         """Run all detection logic and return hardware specs."""
         cpu_count = os.cpu_count() or 1
         ram_gb = HardwareDetector._get_ram_gb()
-        
+
         gpu_type: Literal["nvidia", "amd", "apple", "none"] = "none"
         vram_gb = 0.0
         gpu_count = 0
@@ -80,10 +80,10 @@ class HardwareDetector:
         except ImportError:
             try:
                 if os.path.exists("/proc/meminfo"):
-                    with open("/proc/meminfo", "r") as f:
+                    with open("/proc/meminfo") as f:
                         for line in f:
                             if "MemTotal" in line:
                                 return int(line.split()[1]) / (1024 ** 2)
-            except (IOError, ValueError, IndexError):
+            except (OSError, ValueError, IndexError):
                 pass
         return 8.0

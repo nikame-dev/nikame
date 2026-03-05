@@ -6,29 +6,37 @@ Loads config → validates → builds blueprint → generates files.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 import click
-import yaml
 
 from nikame.blueprint.engine import Blueprint, build_blueprint
+from nikame.codegen.base import CodegenContext
+from nikame.codegen.ml_gateway import MLGatewayCodegen
+from nikame.codegen.registry import (
+    COMPONENT_REGISTRY,
+    discover_codegen,
+    get_codegen_class,
+)
+from nikame.codegen.schema_codegen import SchemaCodegen
 from nikame.composers.docker_compose import generate_compose
 from nikame.config.loader import load_config, load_config_from_dict
 from nikame.config.schema import NikameConfig
 from nikame.config.validator import validate_config
 from nikame.exceptions import NikameError, NikameGenerationError
-from nikame.utils.file_writer import FileWriter
-from nikame.utils.logger import console
-from nikame.codegen.base import CodegenContext
-from nikame.codegen.registry import discover_codegen, get_codegen_class
 from nikame.utils.auth import credentials
+from nikame.utils.file_writer import FileWriter
+from nikame.utils.git import (
+    git_add_remote,
+    git_commit,
+    git_init,
+    git_push,
+    save_project_metadata,
+)
 from nikame.utils.github_client import GitHubClient
-from nikame.utils.git import git_init, git_commit, git_add_remote, git_push, save_project_metadata
-from nikame.codegen.ml_gateway import MLGatewayCodegen
-from nikame.codegen.schema_codegen import SchemaCodegen
-from nikame.codegen.registry import COMPONENT_REGISTRY
-from nikame.codegen.base import CodegenContext
+from nikame.utils.logger import console
 
 # ──────────────────────────── Presets ────────────────────────────
 
@@ -126,14 +134,23 @@ def _generate_project(
             SchemaCodegen(config).generate(output_dir)
 
     # Step 12: Advanced Components (NEW)
-    for comp_key in selected_components:
+    from nikame.codegen.base import CodegenContext
+    
+    ctx = CodegenContext(
+        project_name=config.name,
+        active_modules=[m.NAME for m in blueprint.modules],
+        features=config.features
+    )
+    
+
+    for comp_key in config.features:
         comp_info = COMPONENT_REGISTRY.get(comp_key)
         if comp_info and "class" in comp_info:
             with console.status(f"[info]Generating {comp_info['name']}...[/info]"):
                 generator = comp_info["class"](ctx, config)
                 files = generator.generate()
                 for path, content in files:
-                    writer.write(output_dir / path, content)
+                    writer.write_file(path, content)
 
     # Step 10: Environment files
     _write_env_files(blueprint, writer)
@@ -360,7 +377,7 @@ def _generate_features(
     """Instantiate and run codegen features."""
     # 1. Prepare context
     active_module_names = [m.NAME for m in blueprint.modules]
-    
+
     # Extract connection strings if available
     db_url = ""
     cache_url = ""
@@ -381,20 +398,20 @@ def _generate_features(
 
     # 2. Discover and run features
     discover_codegen()
-    
+
     for feature_name in config.features:
         codegen_cls = get_codegen_class(feature_name)
         if not codegen_cls:
             console.print(f"[warning]Feature '{feature_name}' not found in registry. Skipping.[/warning]")
             continue
-            
+
         # Check module dependencies
         missing_mods = [m for m in codegen_cls.MODULE_DEPENDENCIES if m not in active_module_names]
         if missing_mods:
             console.print(f"[warning]Feature '{feature_name}' requires modules {missing_mods} which are missing. Skipping.[/warning]")
             continue
 
-        codegen = codegen_cls(ctx)
+        codegen = codegen_cls(ctx, config)
         try:
             files = codegen.generate()
             for rel_path, content in files:
@@ -409,12 +426,13 @@ def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
     if not token:
         return
 
-    import questionary
     import anyio
+    import questionary
+
     from nikame.cli.commands.github import _sync_secrets_logic
 
     console.print(f"\n[key]GitHub Integration Detected ({credentials.get_github_user().get('login')})[/key]")
-    
+
     # 1. Main Choice
     choice = questionary.select(
         "What would you like to do with GitHub?",
@@ -447,10 +465,10 @@ def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
                     choices=["Personal"] + [o["login"] for o in orgs],
                     default="Personal",
                 ).ask()
-            
+
             owner = credentials.get_github_user().get("login") if target == "Personal" else target
             private = questionary.confirm("Make repository private?", default=True).ask()
-            
+
             with console.status(f"[info]Creating repo {owner}/{repo_name}...[/info]"):
                 created = anyio.run(client.create_repo, repo_name, config.description, private, None if target == "Personal" else target)
                 repo_url = created["clone_url"]
@@ -474,7 +492,7 @@ def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
     try:
         git_init(output_dir)
         git_add_remote(output_dir, "origin", repo_url)
-        
+
         # Metadata persistence
         metadata = {
             "remote_url": repo_url,
@@ -493,7 +511,7 @@ def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
             if "github.com" in repo_url:
                 if questionary.confirm("Set up GitHub Actions workflow?", default=True).ask():
                     _generate_github_actions(output_dir)
-                
+
                 if questionary.confirm("Synchronize secrets to GitHub?", default=True).ask():
                     # Need to change directory to call sync logic correctly or pass path
                     os.chdir(output_dir)
@@ -507,7 +525,7 @@ def _generate_github_actions(output_dir: Path) -> None:
     """Internal helper to write the production-grade CI template."""
     workflow_dir = output_dir / ".github" / "workflows"
     workflow_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # In a real scenario, we'd use the Template engine
     template_path = Path(__file__).parent.parent.parent / "templates" / "ci_cd" / "github_actions" / "ci.yml.j2"
     if template_path.exists():
@@ -587,7 +605,7 @@ def init(
         # Override output name if using preset
         output_dir = output / nikame_config.name if output == Path(".") else output
 
-        console.print(f"\n[success]🚀 NIKAME init[/success]\n")
+        console.print("\n[success]🚀 NIKAME init[/success]\n")
         _generate_project(nikame_config, output_dir, dry_run=dry_run)
 
         console.print(f"\n[success]✨ Project generated at:[/success] [path]{output_dir}[/path]")

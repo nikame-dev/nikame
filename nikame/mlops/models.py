@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Literal, Any
+from typing import Any, Literal
 
 from nikame.exceptions import NikameError
 
@@ -32,7 +32,7 @@ class ModelManager:
     def resolve_source(self, model_name: str, config: dict[str, Any]) -> ModelSource:
         """Determine the source and identifier from config."""
         source_type = config.get("source", "huggingface")
-        
+
         if source_type == "huggingface":
             identifier = config.get("model")
             if not identifier:
@@ -43,19 +43,19 @@ class ModelManager:
                 revision=config.get("revision", "main"),
                 token_env_var=config.get("token")
             )
-            
+
         elif source_type == "ollama":
             identifier = config.get("model")
             if not identifier:
                 raise NikameError(f"Model '{model_name}' missing 'model' field for Ollama source.")
             return ModelSource(type="ollama", identifier=identifier)
-            
+
         elif source_type == "custom":
             path = config.get("path")
             if not path:
                 raise NikameError(f"Model '{model_name}' missing 'path' field for custom source.")
             return ModelSource(type="custom", identifier=path)
-            
+
         elif source_type == "openai_compatible":
             base_url = config.get("base_url")
             model = config.get("model")

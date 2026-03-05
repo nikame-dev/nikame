@@ -1,4 +1,4 @@
-"""nikame destroy — Tear down infrastructure services."""
+"""nikame down — Stop infrastructure services."""
 
 from __future__ import annotations
 
@@ -12,9 +12,9 @@ from nikame.utils.logger import console
 
 @click.command()
 @click.option(
-    "--keep-data",
+    "--volumes", "-v",
     is_flag=True,
-    help="Keep volumes (databases, caches). Only stop containers.",
+    help="Remove named volumes declared in the 'volumes' section of the Compose file and anonymous volumes attached to containers.",
 )
 @click.option(
     "--project-dir",
@@ -22,16 +22,13 @@ from nikame.utils.logger import console
     default=Path("."),
     help="Project directory containing infrastructure/.",
 )
-@click.confirmation_option(
-    prompt="This will tear down all running services. Continue?",
-)
 @click.pass_context
-def destroy(
+def down(
     ctx: click.Context,
-    keep_data: bool,
+    volumes: bool,
     project_dir: Path,
 ) -> None:
-    """Tear down all NIKAME infrastructure services."""
+    """Stop NIKAME infrastructure services."""
     from nikame.config.loader import load_config
     config_path = project_dir / "nikame.yaml"
 
@@ -43,49 +40,47 @@ def destroy(
     target = config.environment.target
 
     if target == "local":
-        _destroy_local(project_dir, keep_data)
+        _down_local(project_dir, volumes)
     elif target in ["aws", "gcp", "azure"]:
-        _destroy_cloud(project_dir, target)
+        _down_cloud(project_dir, target)
     elif target == "kubernetes":
-        _destroy_k8s(project_dir)
+        _down_k8s(project_dir)
     else:
-        console.print(f"[error]✗ Target '{target}' not yet supported for 'destroy'[/error]")
+        console.print(f"[error]✗ Target '{target}' not yet supported for 'down'[/error]")
 
-def _destroy_local(project_dir: Path, keep_data: bool) -> None:
+def _down_local(project_dir: Path, volumes: bool) -> None:
     compose_file = project_dir / "infrastructure" / "docker-compose.yml"
     if not compose_file.exists():
         console.print("[error]✗ docker-compose.yml not found.[/error]")
         raise SystemExit(1)
 
-    console.print("[warning]🗑️  Destroying Local Services (Docker Compose)...[/warning]\n")
-    cmd = ["docker", "compose", "-f", str(compose_file), "down"]
-    if not keep_data:
-        cmd.append("--volumes")
-        console.print("  [warning]Volumes will be removed (databases, caches)[/warning]")
-    cmd.append("--remove-orphans")
+    console.print("[info]🛑 Stopping Local Services (Docker Compose)...[/info]\n")
+    cmd = ["docker", "compose", "-f", str(compose_file)]
+    env_file = project_dir / ".env.generated"
+    if env_file.exists(): cmd.extend(["--env-file", str(env_file)])
+    cmd.append("down")
+    if volumes: cmd.append("-v")
 
     subprocess.run(cmd, check=True, cwd=str(project_dir))
 
-def _destroy_k8s(project_dir: Path) -> None:
+def _down_k8s(project_dir: Path) -> None:
     k8s_dir = project_dir / "infrastructure" / "kubernetes"
     helm_dir = project_dir / "infrastructure" / "helm"
 
     if helm_dir.exists():
-        console.print("[warning]🗑️  Uninstalling Helm chart...[/warning]\n")
+        console.print("[info]🛑 Removing Helm release...[/info]\n")
         subprocess.run(["helm", "uninstall", "app"], check=True, cwd=str(helm_dir))
     elif k8s_dir.exists():
-        console.print("[warning]🗑️  Deleting K8s resources...[/warning]\n")
+        console.print("[info]🛑 Removing Kubectl resources...[/info]\n")
         subprocess.run(["kubectl", "delete", "-f", "."], check=True, cwd=str(k8s_dir))
     else:
-        console.print("[error]✗ No K8s or Helm files found.[/error]")
+        console.print("[error]✗ No K8s or Helm files found for removal.[/error]")
 
-def _destroy_cloud(project_dir: Path, target: str) -> None:
+def _down_cloud(project_dir: Path, target: str) -> None:
     tf_dir = project_dir / "infrastructure" / "terraform"
     if not tf_dir.exists():
         console.print("[error]✗ Terraform files not found.[/error]")
         raise SystemExit(1)
 
-    console.print(f"[warning]🗑️  Destroying Cloud Infrastructure ({target})...[/warning]\n")
-    # terraform init not needed if already done, but safe to run
-    subprocess.run(["terraform", "init"], check=True, cwd=str(tf_dir))
+    console.print(f"[info]🛑 Tearing down Cloud Infrastructure ({target})...[/info]\n")
     subprocess.run(["terraform", "destroy", "-auto-approve"], check=True, cwd=str(tf_dir))

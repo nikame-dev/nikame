@@ -60,17 +60,17 @@ class PostgresModule(BaseModule):
 
         if self.pgbouncer:
             services["pgbouncer"] = {
-                "image": "bitnami/pgbouncer:latest",
+                "image": "public.ecr.aws/bitnami/pgbouncer:1.23.1",
                 "restart": "unless-stopped",
                 "environment": {
                     "POSTGRESQL_HOST": "postgres",
                     "POSTGRESQL_PORT": "5432",
+                    "POSTGRESQL_USERNAME": "${POSTGRES_USER:-postgres}",
+                    "POSTGRESQL_PASSWORD": "${POSTGRES_PASSWORD}",
                     "PGBOUNCER_DATABASE": "${POSTGRES_DB:-app}",
                     "PGBOUNCER_POOL_MODE": "transaction",
                     "PGBOUNCER_MAX_CLIENT_CONN": "1000",
                     "PGBOUNCER_DEFAULT_POOL_SIZE": "25",
-                    "POSTGRESQL_USERNAME": "${POSTGRES_USER:-postgres}",
-                    "POSTGRESQL_PASSWORD": "${POSTGRES_PASSWORD}",
                 },
                 "depends_on": {"postgres": {"condition": "service_healthy"}},
                 "networks": [f"{self.ctx.project_name}_network"],
@@ -86,7 +86,7 @@ class PostgresModule(BaseModule):
         """Generate full production-ready K8s architecture for PostgreSQL."""
         name = "postgres"
         image = f"postgres:{self.version}-alpine"
-        
+
         # 1. StatefulSet
         statefulset: dict[str, Any] = {
             "apiVersion": "apps/v1",
@@ -163,8 +163,8 @@ class PostgresModule(BaseModule):
         # 4. pgBouncer pooling
         if self.pgbouncer:
             pb_name = "pgbouncer"
-            pb_image = "bitnami/pgbouncer:latest"
-            
+            pb_image = "public.ecr.aws/bitnami/pgbouncer:1.23.1"
+
             pb_dep: dict[str, Any] = {
                 "apiVersion": "apps/v1",
                 "kind": "Deployment",

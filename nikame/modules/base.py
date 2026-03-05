@@ -39,6 +39,7 @@ class ModuleContext:
     tls_enabled: bool = False
     resource_tier: str = "medium"
     all_env_vars: dict[str, str] = field(default_factory=dict)
+    features: list[str] = field(default_factory=list)
 
 
 class BaseModule(ABC):
@@ -262,7 +263,7 @@ class BaseModule(ABC):
             "nginx.ingress.kubernetes.io/ssl-redirect": "true",
             "traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
         }
-        
+
         spec = {
             "rules": [{
                 "host": host,
@@ -273,7 +274,7 @@ class BaseModule(ABC):
                 }]}
             }]
         }
-        
+
         if tls_secret:
             spec["tls"] = [{"hosts": [host], "secretName": tls_secret}]
 

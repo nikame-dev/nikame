@@ -7,7 +7,6 @@ OpenAI-compatible interface to all serving backends.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
 
 from nikame.config.schema import NikameConfig
 from nikame.utils.file_writer import FileWriter

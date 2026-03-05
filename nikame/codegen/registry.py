@@ -1,17 +1,19 @@
 from __future__ import annotations
+
 import importlib
 import pkgutil
-from typing import Type, Dict, Any, List
+from typing import Any
+
 from nikame.codegen.base import BaseCodegen
 
-_CODEGEN_REGISTRY: Dict[str, Type[BaseCodegen]] = {}
+_CODEGEN_REGISTRY: dict[str, type[BaseCodegen]] = {}
 
-def register_codegen(cls: Type[BaseCodegen]) -> Type[BaseCodegen]:
+def register_codegen(cls: type[BaseCodegen]) -> type[BaseCodegen]:
     """Decorator to register a codegen feature."""
     _CODEGEN_REGISTRY[cls.NAME] = cls
     return cls
 
-def get_codegen_class(name: str) -> Type[BaseCodegen] | None:
+def get_codegen_class(name: str) -> type[BaseCodegen] | None:
     """Return the codegen class for a given feature name."""
     return _CODEGEN_REGISTRY.get(name)
 
@@ -22,32 +24,32 @@ def discover_codegen() -> None:
         importlib.import_module(module_name)
 
 # High-fidelity components (Grouped for Item 2)
+from nikame.codegen.components.api_keys import APIKeyCodegen
+from nikame.codegen.components.audit_log import AuditLogCodegen
+from nikame.codegen.components.cron_jobs import CronJobsCodegen
 from nikame.codegen.components.graphql import GraphQLCodegen
 from nikame.codegen.components.grpc import GRPCCodegen
-from nikame.codegen.components.websocket import WebSocketCodegen
-from nikame.codegen.components.webhooks import WebhookCodegen
-from nikame.codegen.components.api_keys import APIKeyCodegen
-from nikame.codegen.components.mock_data import MockDataCodegen
-from nikame.codegen.components.audit_log import AuditLogCodegen
-from nikame.codegen.components.vector_search import VectorSearchCodegen
-from nikame.codegen.components.sse import SECodegen
-from nikame.codegen.components.pubsub import PubSubCodegen
-from nikame.codegen.components.multi_tenancy import MultiTenancyCodegen
-from nikame.codegen.components.cron_jobs import CronJobsCodegen
-from nikame.codegen.components.stripe import StripeCodegen
 from nikame.codegen.components.health_check import HealthCheckCodegen
+from nikame.codegen.components.mock_data import MockDataCodegen
+from nikame.codegen.components.multi_tenancy import MultiTenancyCodegen
+from nikame.codegen.components.pubsub import PubSubCodegen
 from nikame.codegen.components.rate_limiting import RateLimitingCodegen
+from nikame.codegen.components.sse import SSECodegen
+from nikame.codegen.components.stripe import StripeCodegen
+from nikame.codegen.components.vector_search import VectorSearchCodegen
+from nikame.codegen.components.webhooks import WebhookCodegen
+from nikame.codegen.components.websocket import WebSocketCodegen
 
 # Register them manually or use the decorator in their files
 for cls in [
-    GraphQLCodegen, GRPCCodegen, WebSocketCodegen, WebhookCodegen, 
+    GraphQLCodegen, GRPCCodegen, WebSocketCodegen, WebhookCodegen,
     APIKeyCodegen, MockDataCodegen, AuditLogCodegen, VectorSearchCodegen,
-    SECodegen, PubSubCodegen, MultiTenancyCodegen, CronJobsCodegen,
+    SSECodegen, PubSubCodegen, MultiTenancyCodegen, CronJobsCodegen,
     StripeCodegen, HealthCheckCodegen, RateLimitingCodegen
 ]:
     register_codegen(cls)
 
-COMPONENT_REGISTRY: Dict[str, Dict[str, Any]] = {
+COMPONENT_REGISTRY: dict[str, dict[str, Any]] = {
     # APIs
     "graphql": {
         "category": "APIs",
@@ -94,7 +96,7 @@ COMPONENT_REGISTRY: Dict[str, Dict[str, Any]] = {
     "sse": {
         "category": "Real-time",
         "name": "Server-Sent Events (SSE)",
-        "class": SECodegen
+        "class": SSECodegen
     },
     "pubsub": {
         "category": "Real-time",

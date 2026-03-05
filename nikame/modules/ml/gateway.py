@@ -1,5 +1,6 @@
 from typing import Any
-from nikame.modules.base import BaseModule, ModuleContext
+
+from nikame.modules.base import BaseModule
 
 
 class MLGatewayModule(BaseModule):
@@ -24,7 +25,7 @@ class MLGatewayModule(BaseModule):
                 },
                 "ports": ["8000:8000"],
                 "depends_on": {
-                    m: {"condition": "service_healthy"} 
+                    m: {"condition": "service_healthy"}
                     for m in self.config.get("model_services", [])
                 },
                 "networks": [f"{self.ctx.project_name}_network"],

@@ -1,15 +1,18 @@
 # NIKAME GENERATED — DO NOT EDIT DIRECTLY
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
 from nikame.config.schema import NikameConfig
-from jinja2 import Environment, FileSystemLoader
+
 
 class AuditLogCodegen(BaseCodegen):
     NAME = "audit_log"
     DESCRIPTION = "Model change history tracking (Audit Log)"
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         template_dir = Path(__file__).parent.parent.parent / "templates" / "codegen" / "components" / "audit_log"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))

@@ -78,7 +78,7 @@ class MinIOModule(BaseModule):
         """Generate full production-ready K8s architecture for MinIO."""
         name = "minio"
         image = f"minio/minio:{self.version}"
-        
+
         # 1. StatefulSet
         ss = self.stateful_set(
             name=name,

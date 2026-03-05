@@ -6,10 +6,10 @@ an existing application scaffold using markers.
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+
 from nikame.codegen.base import WiringInfo
-from nikame.utils.logger import console
+
 
 class WiringManager:
     """Manages injection and removal of feature wiring code."""
@@ -23,7 +23,7 @@ class WiringManager:
         """Apply wiring info to the project."""
         if self.main_py.exists():
             self._inject_into_main(wiring_info)
-        
+
         if self.requirements_txt.exists():
             self._update_requirements(wiring_info.requirements)
 
@@ -65,13 +65,13 @@ class WiringManager:
     def _remove_from_main(self, wiring_info: WiringInfo) -> None:
         """Remove previously injected strings from main.py."""
         content = self.main_py.read_text()
-        
+
         for imp in wiring_info.imports:
             content = content.replace(f"{imp}\n", "")
-        
+
         for router in wiring_info.routers:
             content = content.replace(f"{router}\n", "")
-            
+
         self.main_py.write_text(content)
 
     def _update_requirements(self, requirements: list[str]) -> None:
@@ -81,7 +81,7 @@ class WiringManager:
 
         content = self.requirements_txt.read_text()
         existing = {line.split(">=")[0].split("==")[0].strip().lower() for line in content.splitlines() if line.strip()}
-        
+
         new_lines = []
         for req in requirements:
             name = req.split(">=")[0].split("==")[0].strip().lower()

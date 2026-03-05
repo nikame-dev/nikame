@@ -6,9 +6,8 @@ Provides user profile management and avatar upload.
 from __future__ import annotations
 
 import os
-from typing import Any
 
-from nikame.codegen.base import BaseCodegen, CodegenContext
+from nikame.codegen.base import BaseCodegen
 from nikame.codegen.registry import register_codegen
 
 
@@ -34,9 +33,9 @@ class ProfilesCodegen(BaseCodegen):
             "router.py.j2",
         ]:
             path = os.path.join(template_dir, template_name)
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
-            
+
             target_path = f"services/api/profiles/{template_name.replace('.j2', '')}"
             files.append((target_path, content))
 

@@ -1,13 +1,16 @@
 # NIKAME GENERATED — DO NOT EDIT DIRECTLY
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
 from nikame.config.schema import NikameConfig
-from jinja2 import Environment, FileSystemLoader
+
 
 class GRPCCodegen(BaseCodegen):
     NAME = "grpc"
     DESCRIPTION = "gRPC service with auto-generated protobuf definitions"
-    
+
     PROTO_TYPES = {
         "str": "string",
         "int": "int32",
@@ -20,7 +23,7 @@ class GRPCCodegen(BaseCodegen):
     }
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         template_dir = Path(__file__).parent.parent.parent / "templates" / "codegen" / "components" / "grpc"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))
@@ -39,7 +42,7 @@ class GRPCCodegen(BaseCodegen):
 
             files.append((f"protos/{name.lower()}.proto", self.env.get_template("service.proto.j2").render(context)))
             files.append((f"app/grpc/{name.lower()}_server.py", self.env.get_template("server.py.j2").render(context)))
-        
+
         return files
 
     def wiring(self) -> WiringInfo:

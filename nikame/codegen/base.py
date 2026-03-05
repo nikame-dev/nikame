@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TYPE_CHECKING
+if TYPE_CHECKING:
+    from nikame.config.schema import NikameConfig
 
 
 @dataclass
@@ -38,7 +40,7 @@ class CodegenContext:
 @dataclass
 class WiringInfo:
     """Metadata for wiring a feature into the application."""
-    
+
     imports: list[str] = field(default_factory=list)
     routers: list[str] = field(default_factory=list)
     requirements: list[str] = field(default_factory=list)
@@ -63,13 +65,15 @@ class BaseCodegen(ABC):
     DEPENDENCIES: list[str] = []
     MODULE_DEPENDENCIES: list[str] = []
 
-    def __init__(self, ctx: CodegenContext) -> None:
+    def __init__(self, ctx: CodegenContext, config: NikameConfig | None = None) -> None:
         """Initialize the codegen feature with project context.
 
         Args:
             ctx: The shared generation context.
+            config: The full project configuration (optional for some features).
         """
         self.ctx = ctx
+        self.config = config
 
     @abstractmethod
     def generate(self) -> list[tuple[str, str]]:

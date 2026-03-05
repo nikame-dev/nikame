@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nikame.modules.base import BaseModule, ModuleContext
+from nikame.modules.base import BaseModule
 
 
 class WoodpeckerModule(BaseModule):
@@ -24,7 +24,7 @@ class WoodpeckerModule(BaseModule):
                 "ports": ["8081:8000"],
                 "environment": {
                     "WOODPECKER_OPEN": "true",
-                    "WOODPECKER_HOST": f"http://localhost:8081",
+                    "WOODPECKER_HOST": "http://localhost:8081",
                 },
                 "networks": [f"{self.ctx.project_name}_network"],
             },

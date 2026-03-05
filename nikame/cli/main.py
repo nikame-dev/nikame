@@ -12,13 +12,13 @@ from nikame import __version__
 from nikame.cli.commands.add import add
 from nikame.cli.commands.destroy import destroy
 from nikame.cli.commands.diff import diff
-from nikame.cli.commands.init import init
-from nikame.cli.commands.up import up
-from nikame.cli.commands.login import login, logout, whoami
 from nikame.cli.commands.github import github
+from nikame.cli.commands.down import down
+from nikame.cli.commands.init import init
+from nikame.cli.commands.login import login, logout, whoami
 from nikame.cli.commands.ml import ml_group
-from nikame.cli.commands.remove import remove
 from nikame.cli.commands.regenerate import regenerate
+from nikame.cli.commands.up import up
 from nikame.utils.logger import console, setup_logging
 
 
@@ -45,6 +45,7 @@ def cli(ctx: click.Context, verbose: bool) -> None:
 # Register commands
 cli.add_command(init)
 cli.add_command(up)
+cli.add_command(down)
 cli.add_command(destroy)
 cli.add_command(add)
 cli.add_command(diff)

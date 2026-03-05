@@ -64,7 +64,7 @@ class RedisModule(BaseModule):
         """Generate full production-ready K8s architecture for Redis."""
         name = "redis"
         image = f"redis:{self.version}-alpine"
-        
+
         # 1. StatefulSet
         ss = self.stateful_set(
             name=name,
@@ -74,7 +74,7 @@ class RedisModule(BaseModule):
             pvc_size="5Gi",
             liveness_probe={"exec": {"command": ["redis-cli", "ping"]}, "initialDelaySeconds": 10}
         )
-        
+
         # 2. Service
         service: dict[str, Any] = {
             "apiVersion": "v1",

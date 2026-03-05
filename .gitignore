@@ -9,6 +9,8 @@ venv/
 ENV/
 env/
 
+.ruff_cache/
+
 # IDEs and Editors
 .vscode/
 .idea/

@@ -13,7 +13,6 @@ from typing import Any
 
 import click
 import httpx
-from rich.console import Console
 
 from nikame.utils.auth import credentials
 from nikame.utils.github_client import GitHubClient
@@ -33,7 +32,7 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
         """Process the redirect from GitHub."""
         parsed_path = urllib.parse.urlparse(self.path)
         params = urllib.parse.parse_qs(parsed_path.query)
-        
+
         if "code" in params:
             self.server.auth_code = params["code"][0]
             self._send_response("Authentication successful! You can close this tab.")
@@ -48,7 +47,7 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
         html = f"<html><body><h1>{message}</h1></body></html>"
         self.wfile.write(html.encode("utf-8"))
 
-    def log_message(self, format: str, *args: Any) -> None:
+    def log_message(self, log_format: str, *args: Any) -> None:
         """Silence logs."""
         pass
 
@@ -57,7 +56,7 @@ class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
 def login() -> None:
     """Authenticate with GitHub to enable repository automation."""
     console.print("[info]Starting GitHub authentication...[/info]")
-    
+
     # 1. Generate Auth URL
     scopes = "repo workflow admin:org"
     auth_url = (
@@ -73,11 +72,11 @@ def login() -> None:
         httpd.auth_code = None
         console.print(f"[success]Opening browser at: {auth_url}[/success]")
         webbrowser.open(auth_url)
-        
+
         # Wait for callback
         console.print("[info]Waiting for GitHub authorization...[/info]")
         httpd.handle_request()
-        
+
         if not httpd.auth_code:
             console.print("[error]Failed to receive authentication code.[/error]")
             raise click.Abort()
@@ -107,9 +106,9 @@ def login() -> None:
             import anyio
             user = anyio.run(client.get_user)
             repo_count = anyio.run(client.get_repo_count)
-            
+
             credentials.save_github_token(token, user_data=user)
-            
+
             console.print(f"\n[success]✨ Successfully logged in as: [bold]{user.get('login')}[/bold][/success]")
             console.print(f"  Accessible repositories: {repo_count}")
         except Exception as exc:
@@ -135,6 +134,6 @@ def whoami() -> None:
     user = credentials.get_github_user()
     if user:
         console.print(f"[info]Logged in as: [bold]{user.get('login')}[/bold][/info]")
-        console.print(f"  Token source: [dim]~/.nikame/credentials.json[/dim]")
+        console.print("  Token source: [dim]~/.nikame/credentials.json[/dim]")
     else:
         console.print("[info]You are not logged in. Run [bold]nikame login[/bold] to authenticate.[/info]")

@@ -6,15 +6,16 @@ Modifies nikame.yaml and triggers regeneration.
 from __future__ import annotations
 
 from pathlib import Path
+
 import click
 import yaml
 
 from nikame.cli.commands.init import _generate_project
-from nikame.config.loader import load_config
-from nikame.modules.registry import discover_modules, get_module_class
+from nikame.codegen.base import CodegenContext
 from nikame.codegen.registry import discover_codegen, get_codegen_class
 from nikame.codegen.wiring import WiringManager
-from nikame.codegen.base import CodegenContext
+from nikame.config.loader import load_config
+from nikame.modules.registry import discover_modules, get_module_class
 from nikame.utils.logger import console
 
 
@@ -39,13 +40,13 @@ def add(name: str, project_dir: Path) -> None:
         raise SystemExit(1)
 
     # 1. Load existing config
-    with open(config_path, "r") as f:
+    with open(config_path) as f:
         config_data = yaml.safe_load(f)
 
     # 2. Check Modules
     discover_modules()
     mod_cls = get_module_class(name)
-    
+
     # 3. Check Components/Features
     discover_codegen()
     codegen_cls = get_codegen_class(name)
@@ -96,18 +97,18 @@ def add(name: str, project_dir: Path) -> None:
             # Simple extraction for context
             if "databases" in config_data and "postgres" in config_data["databases"]:
                 db_url = "postgres://postgres@localhost:5432/app"
-            
+
             ctx = CodegenContext(
                 project_name=nikame_config.name,
-                active_modules=list(config_data.get("databases", {}).keys()) + 
+                active_modules=list(config_data.get("databases", {}).keys()) +
                                list(config_data.get("messaging", {}).keys()) +
                                (["fastapi"] if "api" in config_data else []),
                 database_url=db_url,
                 features=nikame_config.features
             )
-            generator = codegen_cls(ctx)
+            generator = codegen_cls(ctx, nikame_config)
             wiring_info = generator.wiring()
-            
+
             manager = WiringManager(project_dir)
             manager.apply(wiring_info)
 

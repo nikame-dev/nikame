@@ -43,11 +43,11 @@ def up(
     """Start NIKAME infrastructure services."""
     from nikame.config.loader import load_config
     config_path = project_dir / "nikame.yaml"
-    
+
     if not config_path.exists():
         console.print("[error]✗ nikame.yaml not found.[/error]")
         raise SystemExit(1)
-        
+
     config = load_config(config_path)
     target = config.environment.target
 
@@ -74,13 +74,13 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
     if detach: cmd.append("-d")
     if build: cmd.append("--build")
     if service: cmd.extend(service)
-    
+
     subprocess.run(cmd, check=True, cwd=str(project_dir))
 
 def _up_k8s(project_dir: Path) -> None:
     k8s_dir = project_dir / "infrastructure" / "kubernetes"
     helm_dir = project_dir / "infrastructure" / "helm"
-    
+
     if helm_dir.exists():
         console.print("[success]🚀 Deploying via Helm...[/success]\n")
         subprocess.run(["helm", "upgrade", "--install", "app", "."], check=True, cwd=str(helm_dir))

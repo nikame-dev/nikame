@@ -44,8 +44,8 @@ class PrometheusModule(BaseModule):
                 ],
                 "ports": ["9090:9090"] if self.ctx.environment == "local" else [],
                 "volumes": [
-                    "./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
-                    "./configs/prometheus/rules/:/etc/prometheus/rules/:ro",
+                    "../configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
+                    "../configs/prometheus/rules/:/etc/prometheus/rules/:ro",
                     "prometheus_data:/prometheus",
                 ],
                 "healthcheck": self.health_check(),
@@ -56,11 +56,11 @@ class PrometheusModule(BaseModule):
                 },
             },
             "alertmanager": {
-                "image": "prom/alertmanager:latest",
+                "image": "prom/alertmanager:v0.27.0",
                 "restart": "unless-stopped",
                 "ports": ["9093:9093"] if self.ctx.environment == "local" else [],
                 "volumes": [
-                    "./configs/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro",
+                    "../configs/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro",
                 ],
                 "networks": [f"{self.ctx.project_name}_network"],
                 "labels": {

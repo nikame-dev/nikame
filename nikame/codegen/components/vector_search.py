@@ -1,15 +1,18 @@
 # NIKAME GENERATED — DO NOT EDIT DIRECTLY
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
 from nikame.config.schema import NikameConfig
-from jinja2 import Environment, FileSystemLoader
+
 
 class VectorSearchCodegen(BaseCodegen):
     NAME = "vector_search"
     DESCRIPTION = "Semantic vector search (Qdrant + sentence-transformers)"
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         template_dir = Path(__file__).parent.parent.parent / "templates" / "codegen" / "components" / "vector_search"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))

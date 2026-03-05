@@ -1,15 +1,18 @@
 # NIKAME GENERATED — DO NOT EDIT DIRECTLY
 from pathlib import Path
-from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
-from nikame.config.schema import NikameConfig
+
 from jinja2 import Environment, FileSystemLoader
 
-class SECodegen(BaseCodegen):
+from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
+from nikame.config.schema import NikameConfig
+
+
+class SSECodegen(BaseCodegen):
     NAME = "sse"
     DESCRIPTION = "Server-Sent Events (SSE) for real-time updates"
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         template_dir = Path(__file__).parent.parent.parent / "templates" / "codegen" / "components" / "sse"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))

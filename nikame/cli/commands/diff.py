@@ -40,19 +40,19 @@ def diff(project_dir: Path) -> None:
     current_blueprint = build_blueprint(config)
 
     # Load snapshot state
-    with open(snapshot_path, "r") as f:
+    with open(snapshot_path) as f:
         snapshot = json.load(f)
 
     snapshot_modules = {m["name"] for m in snapshot.get("modules", [])}
     current_modules = {m.NAME for m in current_blueprint.modules}
-    
+
     snapshot_features = set(snapshot.get("features", []))
     current_features = set(current_blueprint.active_features)
 
     # Compare
     added_mod = current_modules - snapshot_modules
     removed_mod = snapshot_modules - current_modules
-    
+
     added_feat = current_features - snapshot_features
     removed_feat = snapshot_features - current_features
 
@@ -69,7 +69,7 @@ def diff(project_dir: Path) -> None:
         table.add_row("Module", mod, "[green]ADDED[/green]")
     for mod in removed_mod:
         table.add_row("Module", mod, "[red]REMOVED[/red]")
-        
+
     for feat in added_feat:
         table.add_row("Feature", feat, "[green]ADDED[/green]")
     for feat in removed_feat:

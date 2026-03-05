@@ -8,8 +8,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
-    from nikame.mlops.hardware import HardwareSpecs
     from nikame.config.schema import MLModelConfig
+    from nikame.mlops.hardware import HardwareSpecs
 
 
 ServingBackend = Literal["vllm", "ollama", "triton", "llamacpp", "bentoml", "airllm"]
@@ -47,7 +47,7 @@ class ServingSelector:
         # 4. CPU-only fallbacks
         if hardware.ram_gb >= 32:
             return "llamacpp"
-        
+
         return "airllm"  # For very memory-constrained environments
 
     @staticmethod
@@ -57,7 +57,7 @@ class ServingSelector:
         """Recommend quantization method."""
         if not model.quantize.enabled:
             return "none"
-        
+
         if model.quantize.method != "auto":
             return model.quantize.method
 

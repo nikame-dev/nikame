@@ -5,9 +5,7 @@ Commands for syncing code, managing secrets, and rotating credentials.
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import Any
 
 import anyio
 import click
@@ -15,8 +13,8 @@ import questionary
 from rich.table import Table
 
 from nikame.utils.auth import credentials
+from nikame.utils.git import get_project_metadata, git_push
 from nikame.utils.github_client import GitHubClient
-from nikame.utils.git import git_push, get_project_metadata, save_project_metadata
 from nikame.utils.logger import console
 
 
@@ -45,7 +43,7 @@ def sync(remote: str, branch: str) -> None:
         return
 
     console.print(f"[info]Syncing project to {owner}/{repo_name}...[/info]")
-    
+
     # 1. Push code
     try:
         git_push(Path("."), remote=remote, branch=branch)
@@ -144,16 +142,16 @@ def _sync_secrets_logic(owner: str, repo: str, token: str) -> None:
 
     with console.status("[info]Checking and injecting secrets...[/info]"):
         results = {"injected": 0, "skipped_empty": 0, "skipped_exists": 0, "failed": 0}
-        
+
         for line in env_gen.read_text().splitlines():
             if "=" in line and not line.startswith("#"):
                 key, val = line.split("=", 1)
                 key, val = key.strip(), val.strip()
-                
+
                 if not val or "your-key-here" in val:
                     results["skipped_empty"] += 1
                     continue
-                
+
                 try:
                     exists = anyio.run(client.get_secret, owner, repo, key)
                     if exists:
@@ -161,7 +159,7 @@ def _sync_secrets_logic(owner: str, repo: str, token: str) -> None:
                         if not overwrite:
                             results["skipped_exists"] += 1
                             continue
-                            
+
                     success = anyio.run(client.set_secret, owner, repo, key, val)
                     if success:
                         results["injected"] += 1

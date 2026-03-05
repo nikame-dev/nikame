@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nikame.modules.base import BaseModule, ModuleContext
+from nikame.modules.base import BaseModule
 
 
 class TemporalModule(BaseModule):
@@ -35,7 +35,7 @@ class TemporalModule(BaseModule):
                 "depends_on": ["postgres"],
             },
             "temporal-ui": {
-                "image": f"temporalio/ui:latest",
+                "image": "temporalio/ui:1.23.0",
                 "restart": "unless-stopped",
                 "ports": ["8082:8080"],
                 "environment": {

@@ -1,4 +1,5 @@
 from typing import Any
+
 from nikame.modules.base import BaseModule, ModuleContext
 
 
@@ -19,7 +20,7 @@ class LlamaCppModule(BaseModule):
     def compose_spec(self) -> dict[str, Any]:
         return {
             f"llamacpp-{self.ctx.project_name}": {
-                "image": f"ghcr.io/ggerganov/llama.cpp:server",
+                "image": "ghcr.io/ggerganov/llama.cpp:server",
                 "command": [
                     "-m", f"/models/{self.model_path}",
                     "--host", "0.0.0.0",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nikame.modules.base import BaseModule, ModuleContext
+from nikame.modules.base import BaseModule
 
 
 class AuthentikModule(BaseModule):

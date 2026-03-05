@@ -6,10 +6,10 @@ a validated NikameConfig instance.
 
 from __future__ import annotations
 
-import questionary
 from typing import Any
 
-from nikame.config.schema import NikameConfig
+import questionary
+
 from nikame.utils.logger import console
 
 
@@ -151,7 +151,7 @@ def run_wizard() -> dict[str, Any]:
             "Select advanced components:",
             choices=choices
         ).ask() or []
-    
+
     selected_features.extend(selected_advanced)
 
     # Assemble

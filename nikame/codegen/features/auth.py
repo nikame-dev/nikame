@@ -6,9 +6,8 @@ Provides JWT-based authentication, user registration, and login.
 from __future__ import annotations
 
 import os
-from typing import Any
 
-from nikame.codegen.base import BaseCodegen, CodegenContext
+from nikame.codegen.base import BaseCodegen
 from nikame.codegen.registry import register_codegen
 
 
@@ -38,9 +37,9 @@ class AuthCodegen(BaseCodegen):
             "router.py.j2",
         ]:
             path = os.path.join(template_dir, template_name)
-            with open(path, "r") as f:
+            with open(path) as f:
                 content = f.read()
-            
+
             # Simple "rendering" — since these templates don't use variables yet
             # but they should in the future.
             target_path = f"services/api/auth/{template_name.replace('.j2', '')}"

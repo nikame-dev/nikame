@@ -34,7 +34,7 @@ def generate_helm_chart(blueprint: Blueprint) -> dict[str, str]:
             "environment": blueprint.modules[0].ctx.environment if blueprint.modules else "production",
         },
     }
-    
+
     for mod in blueprint.modules:
         mod_values = {
             "enabled": True,
@@ -61,12 +61,12 @@ nikame.project: {blueprint.project_name}
         name = manifest.get("metadata", {}).get("name")
         # Heuristic to find which module it belongs to
         owner_module = manifest.get("metadata", {}).get("labels", {}).get("nikame.module", "global")
-        
+
         filename = f"templates/{owner_module}-{kind.lower()}-{name}.yaml"
-        
+
         # Simple parameterization: replace specific values with placeholders
         manifest_str = yaml.dump(manifest, sort_keys=False)
-        
+
         # 1. Replicas
         if kind in ["Deployment", "StatefulSet"]:
             manifest_str = manifest_str.replace("replicas: 1", f"replicas: {{{{ .Values.{owner_module}.replicaCount | default 1 }}}}")
@@ -75,9 +75,9 @@ nikame.project: {blueprint.project_name}
         # 2. Ingress Host
         if kind == "Ingress" and blueprint.modules[0].ctx.domain:
             domain = blueprint.modules[0].ctx.domain
-            manifest_str = manifest_str.replace(f"host: {domain}", f"host: {{{{ .Values.global.domain }}}}")
-            manifest_str = manifest_str.replace(f"host: console.{domain}", f"host: console.{{{{ .Values.global.domain }}}}")
-            manifest_str = manifest_str.replace(f"- {domain}", f"- {{{{ .Values.global.domain }}}}")
+            manifest_str = manifest_str.replace(f"host: {domain}", "host: {{ .Values.global.domain }}")
+            manifest_str = manifest_str.replace(f"host: console.{domain}", "host: console.{{ .Values.global.domain }}")
+            manifest_str = manifest_str.replace(f"- {domain}", "- {{ .Values.global.domain }}")
 
         # 3. Resources (replace the whole block if found)
         if "resources:" in manifest_str:

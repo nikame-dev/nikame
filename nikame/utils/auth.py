@@ -45,7 +45,7 @@ class CredentialManager:
             "access_token": token,
             "user": user_data or {},
         }
-        
+
         self.creds_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
         # Restricted permissions (-rw-------)
         os.chmod(self.creds_file, 0o600)

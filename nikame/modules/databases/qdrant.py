@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nikame.modules.base import BaseModule, ModuleContext
+from nikame.modules.base import BaseModule
 
 
 class QdrantModule(BaseModule):
@@ -32,7 +32,7 @@ class QdrantModule(BaseModule):
         """Generate full production-ready K8s architecture for Qdrant."""
         name = "qdrant"
         image = f"qdrant/qdrant:{self.version}"
-        
+
         # 1. StatefulSet
         ss = self.stateful_set(
             name=name,

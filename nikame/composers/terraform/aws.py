@@ -1,9 +1,9 @@
 """Terraform AWS provider for NIKAME."""
 from __future__ import annotations
-import json
-from typing import Any
+
 from nikame.blueprint.engine import Blueprint
 from nikame.composers.terraform.base import BaseTerraformProvider
+
 
 class AWSTerraformProvider(BaseTerraformProvider):
     """AWS Terraform generator — EKS, RDS, ElastiCache, S3, VPC."""
@@ -11,7 +11,7 @@ class AWSTerraformProvider(BaseTerraformProvider):
     def generate(self, blueprint: Blueprint) -> dict[str, str]:
         files: dict[str, str] = {}
         project = blueprint.project_name
-        
+
         # 1. main.tf
         files["main.tf"] = f"""
 provider "aws" {{

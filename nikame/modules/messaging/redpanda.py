@@ -66,7 +66,7 @@ class RedPandaModule(BaseModule):
 
         if self.kafka_ui:
             services["redpanda-console"] = {
-                "image": "redpandadata/console:latest",
+                "image": "redpandadata/console:v2.4.3",
                 "restart": "unless-stopped",
                 "environment": {
                     "KAFKA_BROKERS": "redpanda:9092",

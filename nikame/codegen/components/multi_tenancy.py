@@ -1,15 +1,18 @@
 # NIKAME GENERATED — DO NOT EDIT DIRECTLY
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader
+
 from nikame.codegen.base import BaseCodegen, CodegenContext, WiringInfo
 from nikame.config.schema import NikameConfig
-from jinja2 import Environment, FileSystemLoader
+
 
 class MultiTenancyCodegen(BaseCodegen):
     NAME = "multi_tenancy"
     DESCRIPTION = "Org-based data isolation (Multi-tenancy)"
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
-        super().__init__(ctx)
+        super().__init__(ctx, config)
         self.config = config
         template_dir = Path(__file__).parent.parent.parent / "templates" / "codegen" / "components" / "multi_tenancy"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))

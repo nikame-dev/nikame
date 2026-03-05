@@ -6,12 +6,11 @@ Handles repository initialization, remotes, and pushing with progress feedback.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 from pathlib import Path
 from typing import Any
 
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
 
 
 def git_init(path: Path) -> None:
@@ -41,7 +40,7 @@ def git_push(path: Path, remote: str = "origin", branch: str = "main") -> None:
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
     ) as progress:
         task = progress.add_task(f"Pushing to {remote}/{branch}...", total=100)
-        
+
         # In a real scenario, we might parse git push --progress
         # Here we do the push and update progress
         try:
@@ -60,7 +59,7 @@ def save_project_metadata(path: Path, metadata: dict[str, Any]) -> None:
     """Save project metadata in .nikame/metadata.json."""
     nikame_dir = path / ".nikame"
     nikame_dir.mkdir(exist_ok=True)
-    
+
     metadata_file = nikame_dir / "metadata.json"
     existing = {}
     if metadata_file.exists():
@@ -68,7 +67,7 @@ def save_project_metadata(path: Path, metadata: dict[str, Any]) -> None:
             existing = json.loads(metadata_file.read_text())
         except json.JSONDecodeError:
             pass
-            
+
     existing.update(metadata)
     metadata_file.write_text(json.dumps(existing, indent=2))
 
