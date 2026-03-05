@@ -1,6 +1,6 @@
 # NIKAME
 
-[![CI](https://github.com/omdeepb69/nikame/actions/workflows/ci.yml/badge.svg)](https://github.com/omdeepb69/nikame/actions/workflows/ci.yml)
+[![CI](https://github.com/nikame-dev/nikame/actions/workflows/ci.yml/badge.svg)](https://github.com/nikame-dev/nikame/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/nikame.svg)](https://badge.fury.io/py/nikame)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
