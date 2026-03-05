@@ -129,7 +129,13 @@ class TraefikModule(BaseModule):
             },
         }
 
-        return [deployment, service]
+        # 3. Production Manifests
+        return [
+            deployment,
+            service,
+            self.hpa("traefik", min_reps=2, max_reps=5),
+            self.pdb("traefik"),
+        ]
 
     def health_check(self) -> dict[str, Any]:
         """Traefik API health check."""

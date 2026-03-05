@@ -198,3 +198,65 @@ class RedPandaModule(BaseModule):
             "requests": {"cpu": "500m", "memory": "1Gi"},
             "limits": {"cpu": "2000m", "memory": "2Gi"},
         }
+
+    def scaffold_files(self) -> list[tuple[str, str]]:
+        """Generate producer and worker templates for RedPanda."""
+        files: list[tuple[str, str]] = []
+
+        producer_py = '''"""
+RedPanda/Kafka message producer.
+"""
+
+import json
+from aiokafka import AIOKafkaProducer
+from config import settings
+
+async def get_producer():
+    producer = AIOKafkaProducer(
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+        value_serializer=lambda v: json.dumps(v).encode("utf-8")
+    )
+    await producer.start()
+    return producer
+
+async def send_message(topic: str, message: dict):
+    producer = await get_producer()
+    try:
+        await producer.send_and_wait(topic, message)
+    finally:
+        await producer.stop()
+'''
+
+        worker_py = '''"""
+RedPanda/Kafka message worker.
+"""
+
+import asyncio
+import json
+from aiokafka import AIOKafkaConsumer
+from config import settings
+
+async def start_worker(topic: str, group_id: str):
+    consumer = AIOKafkaConsumer(
+        topic,
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+        group_id=group_id,
+        auto_offset_reset="earliest",
+        value_deserializer=lambda v: json.loads(v.decode("utf-8"))
+    )
+    await consumer.start()
+    try:
+        async for msg in consumer:
+            print(f"Consumed message: {msg.value} from {msg.topic}")
+            # Handle message logic here
+    finally:
+        await consumer.stop()
+
+if __name__ == "__main__":
+    # Example usage: python worker.py
+    asyncio.run(start_worker("events", "nikame-workers"))
+'''
+        files.append(("app/core/messaging/__init__.py", ""))
+        files.append(("app/core/messaging/producer.py", producer_py))
+        files.append(("app/core/messaging/worker.py", worker_py))
+        return files

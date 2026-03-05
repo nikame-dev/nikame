@@ -59,8 +59,7 @@ class KeycloakModule(BaseModule):
             }
         }
 
-    def k8s_manifests(self) -> list[dict[str, Any]]:
-        """Generate K8s Deployment + Service for Keycloak."""
+        # 1. Deployment with Init Container
         deployment: dict[str, Any] = {
             "apiVersion": "apps/v1",
             "kind": "Deployment",
@@ -71,6 +70,10 @@ class KeycloakModule(BaseModule):
                 "template": {
                     "metadata": {"labels": {"app": "keycloak"}},
                     "spec": {
+                        "serviceAccountName": "keycloak",
+                        "initContainers": [
+                            self.init_container_wait("postgres", 5432)
+                        ],
                         "containers": [
                             {
                                 "name": "keycloak",
@@ -82,6 +85,14 @@ class KeycloakModule(BaseModule):
                                     {"secretRef": {"name": "postgres-secret"}},
                                 ],
                                 "resources": self.resource_requirements(),
+                                "livenessProbe": {
+                                    "httpGet": {"path": "/health/live", "port": 8080},
+                                    "initialDelaySeconds": 60,
+                                },
+                                "readinessProbe": {
+                                    "httpGet": {"path": "/health/ready", "port": 8080},
+                                    "initialDelaySeconds": 30,
+                                },
                             }
                         ]
                     },
@@ -89,6 +100,7 @@ class KeycloakModule(BaseModule):
             },
         }
 
+        # 2. Service
         service: dict[str, Any] = {
             "apiVersion": "v1",
             "kind": "Service",
@@ -99,7 +111,14 @@ class KeycloakModule(BaseModule):
             },
         }
 
-        return [deployment, service]
+        # 3. Production Manifests
+        return [
+            self.service_account("keycloak"),
+            deployment,
+            service,
+            self.hpa("keycloak", min_reps=1, max_reps=5),
+            self.pdb("keycloak"),
+        ]
 
     def health_check(self) -> dict[str, Any]:
         """Keycloak health endpoint."""

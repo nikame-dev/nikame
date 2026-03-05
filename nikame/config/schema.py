@@ -263,6 +263,7 @@ class CICDConfig(BaseModel):
     gitea: bool = False
     woodpecker: bool = False
     argocd: bool = False
+    github_actions: bool = True  # Default to True for architectural standard
 
 
 # ──────────────────────────── Compute Optimization ────────────────────────────

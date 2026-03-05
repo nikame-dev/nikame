@@ -44,25 +44,61 @@ PRESETS: dict[str, dict[str, Any]] = {
     "saas-starter": {
         "name": "saas-starter",
         "version": "1.0",
-        "description": "SaaS starter — FastAPI + Postgres + Dragonfly + Keycloak + Traefik + Prometheus + Grafana + MinIO",
+        "description": "Production SaaS — FastAPI + Postgres + Redis + Keycloak + Stripe",
         "environment": {"target": "local", "profile": "local"},
         "api": {"framework": "fastapi", "workers": "auto"},
-        "databases": {
-            "postgres": {"version": "16", "pgbouncer": True, "extensions": ["pgvector"]},
-        },
-        "cache": {"provider": "dragonfly", "dragonfly": {"maxmemory": "1gb"}},
-        "storage": {"provider": "minio", "buckets": ["uploads", "ml-models", "backups"]},
+        "databases": {"postgres": {"version": "16", "pgbouncer": True}},
+        "cache": {"provider": "redis"},
         "auth": {"provider": "keycloak"},
-        "gateway": {"provider": "traefik", "tls": {"enabled": False}},
-        "observability": {"stack": "full"},
+        "ci_cd": {"github_actions": True},
+        "features": ["auth", "stripe", "rate_limiting", "health_check"],
     },
-    "minimal": {
-        "name": "minimal",
+    "mlops-rag": {
+        "name": "mlops-rag",
         "version": "1.0",
-        "description": "Minimal — FastAPI + Postgres",
+        "description": "MLOps RAG Stack — vLLM + Qdrant + Unstructured + Celery",
         "environment": {"target": "local", "profile": "local"},
         "api": {"framework": "fastapi"},
-        "databases": {"postgres": {"version": "16", "pgbouncer": True}},
+        "databases": {"qdrant": {}},
+        "mlops": {
+            "models": [
+                {"name": "llm", "source": "huggingface", "model": "mistralai/Mistral-7B-v0.1", "serve_with": "vllm"}
+            ]
+        },
+        "ci_cd": {"github_actions": True},
+        "features": ["vector_search", "cron_jobs"],
+    },
+    "realtime-analytics": {
+        "name": "realtime-analytics",
+        "version": "1.0",
+        "description": "Real-time Analytics — RedPanda + ClickHouse + Grafana",
+        "environment": {"target": "local", "profile": "local"},
+        "messaging": {
+            "redpanda": {"brokers": 1, "topics": [{"name": "events", "partitions": 3}]}
+        },
+        "databases": {"clickhouse": {}},
+        "observability": {"stack": "full"},
+        "ci_cd": {"github_actions": True},
+        "features": ["pubsub"],
+    },
+    "api-gateway": {
+        "name": "api-gateway",
+        "version": "1.0",
+        "description": "Hardened API Gateway — Traefik + Let's Encrypt + OTel",
+        "environment": {"target": "local", "profile": "local"},
+        "gateway": {"provider": "traefik", "tls": {"enabled": True, "provider": "letsencrypt"}},
+        "api": {"tracing": {"enabled": True, "provider": "otel"}},
+        "ci_cd": {"github_actions": True},
+        "features": ["rate_limiting"],
+    },
+    "multi-tenant": {
+        "name": "multi-tenant",
+        "version": "1.0",
+        "description": "Multi-tenant K8s — Namespace Isolation + Sealed Secrets",
+        "environment": {"target": "kubernetes", "profile": "production", "namespace": "isolated"},
+        "security": {"secrets": {"provider": "sealed-secrets"}, "network_policy": {"provider": "cilium"}},
+        "ci_cd": {"github_actions": True},
+        "features": ["multi_tenancy"],
     },
 }
 
@@ -130,7 +166,7 @@ def _generate_project(
     # Step 5: Docker Compose
     with console.status("[info]Generating Docker Compose...[/info]"):
         compose = generate_compose(blueprint)
-        writer.write_yaml("infrastructure/docker-compose.yml", compose)
+        writer.write_yaml("infra/docker-compose.yml", compose)
 
     # Step 6: Prometheus configs
     _write_prometheus_configs(blueprint, writer)
@@ -171,12 +207,12 @@ def _generate_project(
                 generator = comp_info["class"](ctx, config)
                 files = generator.generate()
                 # Ensure the app directory exists as a package
-                writer.write_file("services/api/app/__init__.py", "")
+                writer.write_file("app/__init__.py", "")
                 
                 for path, content in files:
-                    # Redirect 'app/' to 'services/api/' for unified build context
+                    # Redirect 'app/' to 'app/' for unified build context
                     if path.startswith("app/"):
-                        target_path = f"services/api/{path}"
+                        target_path = path
                     else:
                         target_path = path
                     writer.write_file(target_path, content)
@@ -189,14 +225,14 @@ def _generate_project(
         from nikame.composers.kubernetes.manifests import generate_manifests
         manifests = generate_manifests(blueprint)
         if manifests:
-            writer.write_file("infrastructure/kubernetes/manifests.yaml", manifests)
+            writer.write_file("infra/kubernetes/manifests.yaml", manifests)
 
     # Step 12: Helm chart (NEW)
     with console.status("[info]Generating Helm chart...[/info]"):
         from nikame.composers.kubernetes.helm import generate_helm_chart
         helm_files = generate_helm_chart(blueprint)
         for rel_path, content in helm_files.items():
-            writer.write_file(f"infrastructure/helm/{rel_path}", content)
+            writer.write_file(f"infra/helm/{rel_path}", content)
 
     # Step 13: Terraform (NEW)
     if config.environment.target in ["aws", "gcp", "azure"]:
@@ -204,7 +240,7 @@ def _generate_project(
             from nikame.composers.terraform import generate_terraform
             tf_files = generate_terraform(blueprint)
             for rel_path, content in tf_files.items():
-                writer.write_file(f"infrastructure/terraform/{rel_path}", content)
+                writer.write_file(f"infra/terraform/{rel_path}", content)
 
     # Step 13: Codegen features (NEW)
     if config.features:
@@ -280,7 +316,7 @@ def _write_prometheus_configs(
             },
             "scrape_configs": scrape_configs,
         }
-        writer.write_yaml("configs/prometheus/prometheus.yml", prom_config)
+        writer.write_yaml("infra/configs/prometheus/prometheus.yml", prom_config)
 
         # Basic alertmanager config
         alertmanager_config = {
@@ -294,7 +330,7 @@ def _write_prometheus_configs(
             },
             "receivers": [{"name": "default"}],
         }
-        writer.write_yaml("configs/prometheus/alertmanager.yml", alertmanager_config)
+        writer.write_yaml("infra/configs/prometheus/alertmanager.yml", alertmanager_config)
 
 
 def _write_grafana_configs(
@@ -305,14 +341,14 @@ def _write_grafana_configs(
         # Init scripts (provisioning configs)
         for filename, content in module.init_scripts():
             if filename.startswith("provisioning/"):
-                writer.write_file(f"configs/grafana/{filename}", content)
+                writer.write_file(f"infra/configs/grafana/{filename}", content)
 
         # Dashboard JSON
         dashboard = module.grafana_dashboard()
         if dashboard:
             dashboard_json = json.dumps(dashboard, indent=2)
             writer.write_file(
-                f"configs/grafana/dashboards/{module.NAME}_dashboard.json",
+                f"infra/configs/grafana/dashboards/{module.NAME}_dashboard.json",
                 dashboard_json,
             )
 
@@ -325,7 +361,7 @@ def _write_init_scripts(
         for filename, content in module.init_scripts():
             if not filename.startswith("provisioning/"):
                 writer.write_file(
-                    f"configs/{module.NAME}/{filename}", content
+                    f"infra/configs/{module.NAME}/{filename}", content
                 )
 
 

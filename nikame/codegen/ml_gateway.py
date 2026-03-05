@@ -19,47 +19,72 @@ class MLGatewayCodegen:
         self.config = config
 
     def generate(self, output_dir: Path) -> None:
-        """Generate the ml-gateway FastAPI service."""
+        """Generate the model manager 'Glue' logic."""
         if not self.config.mlops or not self.config.mlops.models:
             return
 
-        gateway_dir = output_dir / "services" / "ml-gateway"
-        gateway_dir.mkdir(parents=True, exist_ok=True)
+        writer = FileWriter(output_dir)
+        
+        # 1. Generate model_manager.py
+        manager_content = self._get_model_manager_py()
+        writer.write_file("app/core/models/model_manager.py", manager_content)
+        writer.write_file("app/core/models/__init__.py", "")
 
-        writer = FileWriter()
+        # 2. Add dependencies to requirements.txt if needed
+        # (Actually init.py handles requirements aggregation from components/features)
 
-        # 1. Generate main.py
-        main_content = self._get_main_py()
-        writer.write(gateway_dir / "main.py", main_content)
+    def _get_model_manager_py(self) -> str:
+        """Generate the core/models/model_manager.py logic."""
+        models_config = []
+        for model in self.config.mlops.models:
+            models_config.append({
+                "name": model.name,
+                "url": f"http://{model.name}:8000/v1",
+                "source": model.source
+            })
 
-        # 2. Generate requirements.txt
-        reqs = "fastapi[all]\nlitellm\nhttpx\nuvicorn\npython-dotenv\n"
-        writer.write(gateway_dir / "requirements.txt", reqs)
-
-        # 3. Generate Dockerfile
-        dockerfile = (
-            "FROM python:3.11-slim\n"
-            "WORKDIR /app\n"
-            "COPY requirements.txt .\n"
-            "RUN pip install --no-cache-dir -r requirements.txt\n"
-            "COPY . .\n"
-            "CMD [\"uvicorn\", \"main:app\", \"--host\", \"0.0.0.0\", \"--port\", \"8000\"]\n"
-        )
-        writer.write(gateway_dir / "Dockerfile", dockerfile)
-
-    def _get_main_py(self) -> str:
-        """Helper to generate main.py content with LiteLLM routing."""
-        return """from fastapi import FastAPI, Request
-from litellm import proxy_handler
-import os
-
-app = FastAPI(title="NIKAME ML Gateway")
-
-@app.all("/{path:path}")
-async def proxy(path: str, request: Request):
-    return {"message": "NIKAME ML Gateway Proxying: " + path}
-
-@app.get("/health")
-async def health():
-    return {"status": "healthy"}
+        return f'''"""
+NIKAME AI Model Manager — Logic Synthesis Glue.
+Provides a unified async interface for interacting with LLMs and Embedding models.
 """
+
+import os
+import httpx
+from typing import Any, List, Optional
+from pydantic import BaseModel
+
+class ModelResponse(BaseModel):
+    text: str
+    usage: dict
+
+class ModelManager:
+    """Unified manager for all configured AI models."""
+    
+    def __init__(self):
+        self.models = {models_config}
+        self.client = httpx.AsyncClient(timeout=60.0)
+
+    async def chat(self, model_name: str, messages: List[dict], **kwargs) -> ModelResponse:
+        """Generic OpenAI-compatible chat completion."""
+        model = next((m for m in self.models if m["name"] == model_name), None)
+        if not model:
+            raise ValueError(f"Model {{model_name}} not configured")
+        
+        response = await self.client.post(
+            f"{{model['url']}}/chat/completions",
+            json={{
+                "model": model_name,
+                "messages": messages,
+                **kwargs
+            }}
+        )
+        response.raise_for_status()
+        data = response.json()
+        return ModelResponse(
+            text=data["choices"][0]["message"]["content"],
+            usage=data.get("usage", {{}})
+        )
+
+model_manager = ModelManager()
+'''
+

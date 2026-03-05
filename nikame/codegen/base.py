@@ -45,6 +45,7 @@ class WiringInfo:
     routers: list[str] = field(default_factory=list)
     requirements: list[str] = field(default_factory=list)
     env_vars: dict[str, str] = field(default_factory=dict)
+    settings_fields: list[str] = field(default_factory=list)
 
 
 class BaseCodegen(ABC):

@@ -25,7 +25,11 @@ class StripeCodegen(BaseCodegen):
 
     def wiring(self) -> WiringInfo:
         return WiringInfo(
-            imports=["from app.api.v1.endpoints.billing import router as billing_router"],
+            imports=["from billing import router as billing_router"],
             routers=["app.include_router(billing_router)"],
-            requirements=["stripe>=8.0.0"]
+            requirements=["stripe>=8.0.0"],
+            settings_fields=[
+                "STRIPE_API_KEY: str = ''",
+                "STRIPE_WEBHOOK_SECRET: str = ''",
+            ]
         )

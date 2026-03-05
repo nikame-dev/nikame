@@ -2,10 +2,10 @@
 import stripe
 from typing import Optional
 from fastapi import APIRouter, Header, Request, HTTPException
+from config import settings
 
-# User: Load these from environment
-stripe.api_key = "sk_test_..."
-WEBHOOK_SECRET = "whsec_..."
+stripe.api_key = settings.STRIPE_API_KEY
+WEBHOOK_SECRET = settings.STRIPE_WEBHOOK_SECRET
 
 router = APIRouter(prefix="/billing", tags=["Billing"])
 
@@ -16,8 +16,8 @@ async def create_checkout_session(price_id: str):
             payment_method_types=['card'],
             line_items=[{'price': price_id, 'quantity': 1}],
             mode='subscription',
-            success_url='https://example.com/success',
-            cancel_url='https://example.com/cancel',
+            success_url=f"https://{settings.APP_NAME}.com/success",
+            cancel_url=f"https://{settings.APP_NAME}.com/cancel",
         )
         return {"checkout_url": session.url}
     except Exception as e:
@@ -35,7 +35,7 @@ async def stripe_webhook(request: Request, stripe_signature: str = Header(None))
 
     if event['type'] == 'checkout.session.completed':
         session = event['data']['object']
-        # User: Handle successful payment (e.g., update DB)
+        # Dispatch a Celery task or update DB with the session
         print(f"Payment successful for session {session.id}")
 
     return {"status": "success"}

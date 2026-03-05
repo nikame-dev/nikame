@@ -30,7 +30,7 @@ from nikame.utils.logger import console
     "--project-dir",
     type=click.Path(exists=True, path_type=Path),
     default=Path("."),
-    help="Project directory containing infrastructure/.",
+    help="Project directory containing infra/.",
 )
 @click.pass_context
 def up(
@@ -61,7 +61,7 @@ def up(
         console.print(f"[error]✗ Target '{target}' not yet supported for 'up'[/error]")
 
 def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: bool) -> None:
-    compose_file = project_dir / "infrastructure" / "docker-compose.yml"
+    compose_file = project_dir / "infra" / "docker-compose.yml"
     if not compose_file.exists():
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
         raise SystemExit(1)
@@ -101,8 +101,8 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
     subprocess.run(cmd, check=True, cwd=str(project_dir))
 
 def _up_k8s(project_dir: Path) -> None:
-    k8s_dir = project_dir / "infrastructure" / "kubernetes"
-    helm_dir = project_dir / "infrastructure" / "helm"
+    k8s_dir = project_dir / "infra" / "kubernetes"
+    helm_dir = project_dir / "infra" / "helm"
 
     if helm_dir.exists():
         console.print("[success]🚀 Deploying via Helm...[/success]\n")
@@ -114,7 +114,7 @@ def _up_k8s(project_dir: Path) -> None:
         console.print("[error]✗ No K8s or Helm files found.[/error]")
 
 def _up_cloud(project_dir: Path, target: str) -> None:
-    tf_dir = project_dir / "infrastructure" / "terraform"
+    tf_dir = project_dir / "infra" / "terraform"
     if not tf_dir.exists():
         console.print("[error]✗ Terraform files not found.[/error]")
         raise SystemExit(1)

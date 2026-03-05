@@ -40,7 +40,7 @@ class FastAPIModule(BaseModule):
         return {
             "api": {
                 "build": {
-                    "context": "../services/api",
+                    "context": "../app",
                     "dockerfile": "Dockerfile",
                 },
                 "restart": "unless-stopped",
@@ -258,10 +258,16 @@ class FastAPIModule(BaseModule):
 
         files: list[tuple[str, str]] = []
 
-        # 1. services/api/main.py
+        # 1. app/main.py
         # Dynamically build imports and router registrations from WiringInfo
-        nikame_imports = []
+        nikame_imports = [
+            "from routers import health",
+            "from core.database import engine as db_engine",
+        ]
         nikame_routers = []
+
+        if has_cache:
+            nikame_imports.append("from core.cache import redis_client")
 
         # Add hardcoded internal features first (or transition them to wiring too)
         # For now, we still have auth/storage/profiles as hardcoded feature routers
@@ -299,15 +305,23 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
-from routers import health
 {imports_block}
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup logic
+    # Startup logic: verify connections
     print(f"Starting {{settings.APP_NAME}} in {{settings.APP_ENV}} mode")
+    try:
+        # Test DB connection
+        async with db_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        print("✓ Database connection verified")
+    except Exception as e:
+        print(f"⚠ Database connection failed: {{e}}")
+    
     yield
     # Shutdown logic
+    await db_engine.dispose()
     print(f"Shutting down {{settings.APP_NAME}}")
 
 app = FastAPI(
@@ -327,22 +341,25 @@ app.add_middleware(
 
 # Routes
 app.include_router(health.router)
+
+# Import text for startup check
+from sqlalchemy import text
 {routers_block}
 
 @app.get("/")
 async def root():
     return {{"message": f"Welcome to {{settings.APP_NAME}}", "env": settings.APP_ENV}}
 '''
-        files.append(("services/api/main.py", main_py))
+        files.append(("app/main.py", main_py))
 
         # Ensure feature folders have __init__.py if they are being registered
         for feature in self.ctx.features:
             if feature == "auth":
-                files.append(("services/api/auth/__init__.py", ""))
+                files.append(("app/auth/__init__.py", ""))
             elif feature == "file_upload":
-                files.append(("services/api/storage/__init__.py", ""))
+                files.append(("app/storage/__init__.py", ""))
             elif feature == "profiles":
-                files.append(("services/api/profiles/__init__.py", ""))
+                files.append(("app/profiles/__init__.py", ""))
 
         # 2. services/api/config.py
         config_py = f'''"""
@@ -363,13 +380,14 @@ class Settings(BaseSettings):
     # Cache
     CACHE_URL: str = "{self.ctx.all_env_vars.get('CACHE_URL', self.ctx.all_env_vars.get('REDIS_URL', ''))}"
 
+{"".join([f"    {field}\n" for wiring in self.ctx.wiring.values() for field in wiring.settings_fields])}
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
 '''
-        files.append(("services/api/config.py", config_py))
+        files.append(("app/config.py", config_py))
 
-        # 3. services/api/routers/health.py
+        # 3. app/routers/health.py
         health_py = '''"""
 Health and readiness probes.
 """
@@ -380,6 +398,8 @@ import httpx
 
 router = APIRouter(prefix="/health", tags=["monitoring"])
 
+from core.database import engine as db_engine
+
 @router.get("/")
 async def health_check():
     """Liveness probe."""
@@ -388,19 +408,36 @@ async def health_check():
 @router.get("/ready")
 async def readiness_check():
     """Readiness probe — checks dependencies."""
-    checks = {
-        "api": "ok",
-    }
+    from sqlalchemy import text
+    checks = {"api": "ok"}
     
-    # Simple check logic for demo
-    # In production, actually ping DB/Cache session
+    # 1. Database Check
+    try:
+        async with db_engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except Exception:
+        checks["database"] = "fail"
+
+    # 2. Cache Check
+    try:
+        from core.cache import redis_client
+        await redis_client.ping()
+        checks["cache"] = "ok"
+    except Exception:
+        # Only fail if cache is actually required/configured
+        # For now we just report it
+        checks["cache"] = "fail"
+    
+    if "fail" in checks.values():
+        raise HTTPException(status_code=503, detail=f"Service unavailable: {checks}")
     
     return {"status": "ready", "components": checks}
 '''
-        files.append(("services/api/routers/__init__.py", ""))
-        files.append(("services/api/routers/health.py", health_py))
+        files.append(("app/routers/__init__.py", ""))
+        files.append(("app/routers/health.py", health_py))
 
-        # 4. services/api/db/session.py (if Postgres active)
+        # 4. app/core/database.py
         if has_db:
             db_session = '''"""
 SQLAlchemy async session management.
@@ -413,6 +450,8 @@ engine = create_async_engine(
     settings.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://"),
     echo=settings.APP_ENV == "local",
     pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
 )
 
 AsyncSessionLocal = async_sessionmaker(
@@ -428,10 +467,33 @@ async def get_db():
         finally:
             await session.close()
 '''
-            files.append(("services/api/db/__init__.py", ""))
-            files.append(("services/api/db/session.py", db_session))
+            files.append(("app/core/__init__.py", ""))
+            files.append(("app/core/database.py", db_session))
 
-        # 5. services/api/Dockerfile
+        # 5. app/core/cache.py
+        if has_cache:
+            cache_py = f'''"""
+Redis/Dragonfly client configuration.
+"""
+
+import redis.asyncio as redis
+from config import settings
+
+redis_client = redis.from_url(
+    settings.CACHE_URL,
+    encoding="utf-8",
+    decode_responses=True,
+    socket_timeout=5,
+)
+
+async def get_cache():
+    return redis_client
+'''
+            if ("app/core/__init__.py", "") not in files:
+                files.append(("app/core/__init__.py", ""))
+            files.append(("app/core/cache.py", cache_py))
+
+        # 5. app/Dockerfile
         dockerfile = f'''# Multi-stage production-ready Dockerfile for FastAPI
 # Generated by NIKAME
 
@@ -455,9 +517,9 @@ EXPOSE {self.port}
 
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--proxy-headers"]
 '''
-        files.append(("services/api/Dockerfile", dockerfile))
+        files.append(("app/Dockerfile", dockerfile))
 
-        # 6. services/api/requirements.txt
+        # 6. app/requirements.txt
         reqs = [
             "fastapi>=0.109.0",
             "uvicorn[standard]>=0.27.0",
@@ -469,7 +531,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--pro
         if has_cache:
             reqs.append("redis>=5.0.0")
 
-        files.append(("services/api/requirements.txt", "\n".join(reqs) + "\n"))
+        files.append(("app/requirements.txt", "\n".join(reqs) + "\n"))
 
         # 7. Aggregate additional requirements from components
         for wiring in self.ctx.wiring.values():
@@ -477,9 +539,9 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--pro
                 reqs.extend(wiring.requirements)
         
         # Rewrite requirements with all dependencies
-        files[-1] = ("services/api/requirements.txt", "\n".join(sorted(list(set(reqs)))) + "\n")
+        files[-1] = ("app/requirements.txt", "\n".join(sorted(list(set(reqs)))) + "\n")
 
-        # 8. services/api/.dockerignore
+        # 8. app/.dockerignore
         dockerignore = """
 __pycache__
 *.pyc
@@ -490,6 +552,6 @@ venv
 .gitignore
 .dockerignore
 """
-        files.append(("services/api/.dockerignore", dockerignore.strip() + "\n"))
+        files.append(("app/.dockerignore", dockerignore.strip() + "\n"))
 
         return files

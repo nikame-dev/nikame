@@ -52,45 +52,47 @@ class DragonflyModule(BaseModule):
         }
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
-        """Generate K8s Deployment + Service for Dragonfly."""
-        deployment: dict[str, Any] = {
-            "apiVersion": "apps/v1",
-            "kind": "Deployment",
-            "metadata": {
-                "name": "dragonfly",
-                "namespace": self.ctx.namespace,
-            },
-            "spec": {
-                "replicas": 1,
-                "selector": {"matchLabels": {"app": "dragonfly"}},
-                "template": {
-                    "metadata": {"labels": {"app": "dragonfly"}},
-                    "spec": {
-                        "containers": [
-                            {
-                                "name": "dragonfly",
-                                "image": f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}",
-                                "ports": [{"containerPort": 6379}],
-                                "args": [f"--maxmemory={self.maxmemory}", "--cache_mode=true"],
-                                "resources": self.resource_requirements(),
-                            }
-                        ]
-                    },
-                },
-            },
-        }
+        """Generate K8s StatefulSet + Service + HPA + PDB for Dragonfly."""
+        name = "dragonfly"
+        image = f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}"
+        
+        # 1. StatefulSet
+        ss = self.stateful_set(
+            name=name,
+            image=image,
+            port=6379,
+            pvc_name=f"{name}-data",
+            pvc_size="10Gi",
+            liveness_probe={
+                "exec": {"command": ["redis-cli", "ping"]},
+                "initialDelaySeconds": 10,
+                "periodSeconds": 30,
+            }
+        )
+        # Update args for Dragonfly
+        ss["spec"]["template"]["spec"]["containers"][0]["args"] = [
+            f"--maxmemory={self.maxmemory}", 
+            "--cache_mode=true"
+        ]
 
+        # 2. Service
         service: dict[str, Any] = {
             "apiVersion": "v1",
             "kind": "Service",
-            "metadata": {"name": "dragonfly", "namespace": self.ctx.namespace},
+            "metadata": {"name": name, "namespace": self.ctx.namespace},
             "spec": {
-                "selector": {"app": "dragonfly"},
+                "selector": {"app": name},
                 "ports": [{"port": 6379, "targetPort": 6379}],
             },
         }
 
-        return [deployment, service]
+        # 3. Production Manifests
+        return [
+            ss,
+            service,
+            self.hpa(name, min_reps=1, max_reps=3), # Dragonfly is vertically scalable but HPA is good for metrics
+            self.pdb(name)
+        ]
 
     def health_check(self) -> dict[str, Any]:
         """Dragonfly readiness check (Redis-compatible protocol)."""

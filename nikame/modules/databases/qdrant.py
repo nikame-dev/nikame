@@ -65,6 +65,7 @@ class QdrantModule(BaseModule):
             ss,
             service,
             self.network_policy(name, allow_from=["api", "worker"]),
+            self.hpa(name, min_reps=1, max_reps=3),
             self.pdb(name, min_available=1),
         ]
 
