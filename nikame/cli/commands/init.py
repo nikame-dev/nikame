@@ -489,7 +489,7 @@ def _generate_features(
         # Check module dependencies (should already be resolved by blueprint)
         missing_mods = [m for m in codegen_cls.MODULE_DEPENDENCIES if m not in active_module_names]
         if missing_mods:
-            _log.error("Feature '%s' requires modules %s which are missing even after blueprint resolution.", feature_name, missing_mods)
+            console.print(f"[error]Feature '{feature_name}' requires modules {missing_mods} which are missing even after blueprint resolution.[/error]")
             continue
 
         codegen = codegen_cls(ctx, config)
