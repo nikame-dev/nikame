@@ -486,15 +486,10 @@ def _generate_features(
             console.print(f"[warning]Feature '{feature_name}' not found in registry. Skipping.[/warning]")
             continue
 
-        # Check module dependencies
+        # Check module dependencies (should already be resolved by blueprint)
         missing_mods = [m for m in codegen_cls.MODULE_DEPENDENCIES if m not in active_module_names]
-        
-        # Special case: dragonfly satisfies redis dependency
-        if "redis" in missing_mods and "dragonfly" in active_module_names:
-            missing_mods.remove("redis")
-
         if missing_mods:
-            console.print(f"[warning]Feature '{feature_name}' requires modules {missing_mods} which are missing. Skipping.[/warning]")
+            _log.error("Feature '%s' requires modules %s which are missing even after blueprint resolution.", feature_name, missing_mods)
             continue
 
         codegen = codegen_cls(ctx, config)

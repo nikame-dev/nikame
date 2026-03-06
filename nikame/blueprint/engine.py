@@ -276,7 +276,24 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
 
     # Step 2: Extract which modules the user's config activates
     active_module_configs = _extract_active_modules(config)
-    _log.debug("Active modules from config: %s", list(active_module_configs.keys()))
+    
+    # Step 2.5: Resolve feature-to-module dependencies
+    from nikame.codegen.registry import discover_codegen, get_codegen_class
+    discover_codegen()
+    
+    for feature_name in config.features:
+        codegen_cls = get_codegen_class(feature_name)
+        if codegen_cls:
+            for mod_dep in codegen_cls.MODULE_DEPENDENCIES:
+                # Special case: dragonfly satisfies redis dependency
+                if mod_dep == "redis" and "dragonfly" in active_module_configs:
+                    continue
+                
+                if mod_dep not in active_module_configs:
+                    _log.info("Feature '%s' requires module '%s'. Adding to blueprint.", feature_name, mod_dep)
+                    active_module_configs[mod_dep] = {}
+
+    _log.debug("Active modules after feature resolution: %s", list(active_module_configs.keys()))
 
     # Step 3: Build the dependency graph
     graph: nx.DiGraph = nx.DiGraph()  # type: ignore[type-arg]
