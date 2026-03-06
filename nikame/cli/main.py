@@ -19,6 +19,7 @@ from nikame.cli.commands.login import login, logout, whoami
 from nikame.cli.commands.ml import ml_group
 from nikame.cli.commands.regenerate import regenerate
 from nikame.cli.commands.up import up
+from nikame.cli.commands.tunnel import tunnel
 from nikame.utils.logger import console, setup_logging
 
 
@@ -55,6 +56,7 @@ cli.add_command(whoami)
 cli.add_command(github)
 cli.add_command(ml_group)
 cli.add_command(regenerate)
+cli.add_command(tunnel)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,8 @@
-"""Auth feature codegen for NIKAME.
+import re
+from pathlib import Path
+
+path = Path("/home/omdeep-borkar/projects/nikame/nikame/codegen/features/auth.py")
+content = '''"""Auth feature codegen for NIKAME.
 
 Provides ASGI/FastAPI JWT-based authentication, user registration, and login.
 """
@@ -16,7 +20,7 @@ class AuthCodegen(BaseCodegen):
     MODULE_DEPENDENCIES: list[str] = ["postgres"]
 
     def generate(self) -> list[tuple[str, str]]:
-        active_modules = self.ctx.active_modules
+        active_modules = [m.NAME for m in self.ctx.blueprint.modules]
         has_messaging = any(m in ["redpanda", "kafka"] for m in active_modules)
 
         models_py = """\\"\\"\\"SQLAlchemy User Models.\\"\\"\\"
@@ -80,12 +84,16 @@ def create_access_token(subject: str, expires_delta: timedelta):
 
         kafka_import = "from core.messaging import kafka_service\\n" if has_messaging else ""
         kafka_publish_register = """
+    # Publish to Kafka
     if has_messaging:
-        await kafka_service.send_message("user.events", {"event": "registered", "user_id": db_obj.id, "email": db_obj.email})""" if has_messaging else ""
-        
+        await kafka_service.send_message("user.events", {"event": "registered", "user_id": db_obj.id, "email": db_obj.email})
+""" if has_messaging else ""
+
         kafka_publish_login = """
+    # Publish to Kafka
     if has_messaging:
-        await kafka_service.send_message("user.events", {"event": "logged_in", "user_id": user.id, "email": user.email})""" if has_messaging else ""
+        await kafka_service.send_message("user.events", {"event": "logged_in", "user_id": user.id, "email": user.email})
+""" if has_messaging else ""
 
         router_py = f"""\\"\\"\\"Auth routing and logic.\\"\\"\\"
 from fastapi import APIRouter, Depends, HTTPException
@@ -94,13 +102,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import timedelta
 from core.database import get_db
-from . import schemas, models, security
 import logging
 
+from . import schemas, models, security
 {kafka_import}
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/auth", tags=["auth"])
 has_messaging = {'True' if has_messaging else 'False'}
 
 @router.post("/register", response_model=schemas.UserResponse)
@@ -137,3 +145,6 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             ("app/api/auth/security.py", security_py),
             ("app/api/auth/router.py", router_py),
         ]
+'''
+path.write_text(content)
+print("Updated auth.py")

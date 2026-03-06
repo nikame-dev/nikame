@@ -359,6 +359,7 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
         tls_enabled=bool(config.gateway and config.gateway.tls.enabled),
         resource_tier="medium",
         features=config.features,
+        active_modules=list(sorted_names),
     )
 
     # Step 7: Instantiate modules in sorted order

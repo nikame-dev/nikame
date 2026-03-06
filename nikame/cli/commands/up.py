@@ -117,6 +117,10 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
         # Priority 5: Health Check Verification
         _verify_health(config.name)
         
+        # Priority 6: Display Ngrok Tunnel (if active)
+        if "ngrok" in [m.name for m in config.modules]:
+            _display_ngrok_tunnel()
+        
     except subprocess.CalledProcessError as e:
         console.print("\n[error]✗ Docker Compose failed to start services.[/error]")
         
@@ -130,6 +134,23 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
             console.print("3. Ensure you are on the latest version: [bold]pip install --upgrade nikame[/bold]")
         
         raise SystemExit(1)
+
+def _display_ngrok_tunnel():
+    """Attempt to fetch and display the public Ngrok url from the local agent."""
+    import requests
+    import time
+    
+    with console.status("[info]Waiting for ngrok tunnel to establish...[/info]"):
+        # Give the tunnel a few seconds to register with the ngrok cloud
+        time.sleep(3)
+        try:
+            response = requests.get("http://localhost:4040/api/tunnels", timeout=2)
+            if response.status_code == 200:
+                tunnels = response.json().get("tunnels", [])
+                for t in tunnels:
+                    console.print(f"\\n[success]🌐 Public URL (ngrok):[/success] [bold cyan]{t.get('public_url')}[/bold cyan]")
+        except Exception:
+            pass
 
 def _verify_health(project_name: str) -> None:
     """Run health checks on all project containers and print status table."""
