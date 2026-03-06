@@ -8,7 +8,7 @@ from nikame.config.schema import NikameConfig
 
 
 class APIKeyCodegen(BaseCodegen):
-    NAME = "api_keys"
+    NAME = "api_key"
     DESCRIPTION = "Public API key system (generate, revoke, rate limit per key)"
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:

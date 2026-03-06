@@ -10,6 +10,7 @@ from nikame.config.schema import NikameConfig
 class RateLimitingCodegen(BaseCodegen):
     NAME = "rate_limiting"
     DESCRIPTION = "Redis-backed IP rate limiting"
+    MODULE_DEPENDENCIES: list[str] = ["redis"]
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
         super().__init__(ctx, config)

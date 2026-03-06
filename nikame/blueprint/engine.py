@@ -285,9 +285,16 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
         codegen_cls = get_codegen_class(feature_name)
         if codegen_cls:
             for mod_dep in codegen_cls.MODULE_DEPENDENCIES:
-                # Special case: dragonfly satisfies redis dependency
-                if mod_dep == "redis" and "dragonfly" in active_module_configs:
-                    continue
+                # Special case: dragonfly/valkey satisfies redis dependency, redpanda satisfies kafka
+                satisfied_by = {
+                    "redis": ["dragonfly", "valkey", "redis"],
+                    "kafka": ["redpanda", "kafka"]
+                }
+                
+                if mod_dep in satisfied_by:
+                    substitutes = satisfied_by[mod_dep]
+                    if any(sub in active_module_configs for sub in substitutes):
+                        continue
                 
                 if mod_dep not in active_module_configs:
                     _log.info("Feature '%s' requires module '%s'. Adding to blueprint.", feature_name, mod_dep)

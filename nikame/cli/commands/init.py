@@ -497,7 +497,19 @@ def _generate_features(
             continue
 
         # Check module dependencies (should already be resolved by blueprint)
-        missing_mods = [m for m in codegen_cls.MODULE_DEPENDENCIES if m not in active_module_names]
+        satisfied_by = {
+            "redis": ["dragonfly", "valkey", "redis"],
+            "kafka": ["redpanda", "kafka"]
+        }
+        
+        missing_mods = []
+        for mod_dep in codegen_cls.MODULE_DEPENDENCIES:
+            if mod_dep in satisfied_by:
+                if not any(sub in active_module_names for sub in satisfied_by[mod_dep]):
+                    missing_mods.append(mod_dep)
+            elif mod_dep not in active_module_names:
+                missing_mods.append(mod_dep)
+
         if missing_mods:
             console.print(f"[error]Feature '{feature_name}' requires modules {missing_mods} which are missing even after blueprint resolution.[/error]")
             continue
