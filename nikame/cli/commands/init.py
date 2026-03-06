@@ -296,28 +296,38 @@ def _write_prometheus_configs(
                 "static_configs": [{"targets": ["localhost:9090"]}],
             },
         ]
+        
+        seen_jobs = {"prometheus"}
+        
         for module in blueprint.modules:
             # 1. Custom targets from module
             targets = module.prometheus_scrape_targets()
             if targets:
-                scrape_configs.extend(targets)
+                for target in targets:
+                    if target["job_name"] not in seen_jobs:
+                        scrape_configs.append(target)
+                        seen_jobs.add(target["job_name"])
             
             # 2. Default target if it looks like a Prometheus-compatible service
             # and doesn't already have custom targets defined
-            elif module.NAME in ["prometheus", "alertmanager"]:
-                scrape_configs.append(
-                    {
-                        "job_name": module.NAME,
-                        "static_configs": [{"targets": [f"{module.NAME}:9090"]}],
-                    }
-                )
+            elif module.NAME == "alertmanager":
+                if "alertmanager" not in seen_jobs:
+                    scrape_configs.append(
+                        {
+                            "job_name": "alertmanager",
+                            "static_configs": [{"targets": ["alertmanager:9093"]}],
+                        }
+                    )
+                    seen_jobs.add("alertmanager")
             elif module.NAME == "api":
-                scrape_configs.append(
-                    {
-                        "job_name": "api",
-                        "static_configs": [{"targets": ["api:8000"]}],
-                    }
-                )
+                if "api" not in seen_jobs:
+                    scrape_configs.append(
+                        {
+                            "job_name": "api",
+                            "static_configs": [{"targets": ["api:8000"]}],
+                        }
+                    )
+                    seen_jobs.add("api")
 
         prom_config: dict[str, Any] = {
             "global": {
