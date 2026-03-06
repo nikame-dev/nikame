@@ -3,8 +3,6 @@
 from __future__ import annotations
 import click
 import requests
-import json
-from pathlib import Path
 from nikame.utils.logger import console
 
 @click.command()

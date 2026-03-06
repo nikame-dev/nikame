@@ -52,7 +52,7 @@ def up(
     target = config.environment.target
 
     if target == "local":
-        _up_local(project_dir, service, build, detach)
+        _up_local(project_dir, config, service, build, detach)
     elif target in ["aws", "gcp", "azure"]:
         _up_cloud(project_dir, target)
     elif target == "kubernetes":
@@ -60,7 +60,7 @@ def up(
     else:
         console.print(f"[error]✗ Target '{target}' not yet supported for 'up'[/error]")
 
-def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: bool) -> None:
+def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...], build: bool, detach: bool) -> None:
     compose_file = project_dir / "infra" / "docker-compose.yml"
     if not compose_file.exists():
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
@@ -135,7 +135,7 @@ def _up_local(project_dir: Path, service: tuple[str, ...], build: bool, detach: 
         
         raise SystemExit(1)
 
-def _display_ngrok_tunnel():
+def _display_ngrok_tunnel() -> None:
     """Attempt to fetch and display the public Ngrok url from the local agent."""
     import requests
     import time

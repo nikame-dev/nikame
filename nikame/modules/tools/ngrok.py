@@ -17,11 +17,11 @@ class NgrokModule(BaseModule):
     CATEGORY = "tools"
     DEFAULT_PORT = 4040 # Ngrok agent API
 
-    def get_service_config(self) -> dict:
+    def get_service_config(self) -> dict[str, Any]:
         """Ngrok does not need a docker-compose service if run via pyngrok in FastAPI."""
         return {}
 
-    def get_env_vars(self) -> dict:
+    def get_env_vars(self) -> dict[str, str]:
         return {
             "NGROK_AUTHTOKEN": "",
         }
