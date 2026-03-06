@@ -261,6 +261,7 @@ class FastAPIModule(BaseModule):
         has_neo4j = any(m in ["neo4j"] for m in self.ctx.active_modules)
         has_clickhouse = any(m in ["clickhouse"] for m in self.ctx.active_modules)
         has_qdrant = any(m in ["qdrant"] for m in self.ctx.active_modules)
+        has_vector = has_qdrant # Alias
         has_temporal = any(m in ["temporal"] for m in self.ctx.active_modules)
         has_ngrok = any(m in ["ngrok"] for m in self.ctx.active_modules)
         has_smtp = "email" in self.ctx.features
