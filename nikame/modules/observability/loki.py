@@ -21,7 +21,7 @@ class LokiModule(BaseModule):
             "loki": {
                 "image": f"grafana/loki:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["3100:3100"],
+                "ports": [f"{self.ctx.host_port_map.get('loki', 3100)}:3100"] if self.ctx.environment == "local" else [],
                 "command": ["-config.file=/etc/loki/local-config.yaml"],
                 "volumes": [
                     "./configs/loki/local-config.yaml:/etc/loki/local-config.yaml:ro",

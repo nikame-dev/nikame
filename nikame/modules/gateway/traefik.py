@@ -42,7 +42,10 @@ class TraefikModule(BaseModule):
             "--entrypoints.web.address=:80",
         ]
 
-        ports = ["80:80", "8090:8080"]  # 8090 for dashboard
+        ports = [
+            f"{self.ctx.host_port_map.get('traefik', 80)}:80",
+            f"{self.ctx.host_port_map.get('traefik-dashboard', 8080)}:8080"
+        ]
 
         if self.tls_enabled and self.ctx.environment != "local":
             command.extend([

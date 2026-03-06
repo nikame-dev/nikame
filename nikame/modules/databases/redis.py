@@ -49,7 +49,7 @@ class RedisModule(BaseModule):
                 "image": f"redis:{self.version}-alpine",
                 "restart": "unless-stopped",
                 "command": " ".join(cmd_parts),
-                "ports": ["6379:6379"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('redis', 6379)}:6379"] if self.ctx.environment == "local" else [],
                 "volumes": volumes,
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],

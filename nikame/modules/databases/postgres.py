@@ -48,7 +48,7 @@ class PostgresModule(BaseModule):
                 "volumes": [
                     "postgres_data:/var/lib/postgresql/data",
                 ],
-                "ports": ["5432:5432"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('postgres', 5432)}:5432"] if self.ctx.environment == "local" else [],
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],
                 "labels": {

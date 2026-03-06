@@ -42,7 +42,7 @@ class PrometheusModule(BaseModule):
                     "--web.enable-lifecycle",
                     "--web.enable-admin-api",
                 ],
-                "ports": ["9090:9090"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('prometheus', 9090)}:9090"] if self.ctx.environment == "local" else [],
                 "volumes": [
                     "./configs/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro",
                     "./configs/prometheus/rules/:/etc/prometheus/rules/:ro",
@@ -58,7 +58,7 @@ class PrometheusModule(BaseModule):
             "alertmanager": {
                 "image": "prom/alertmanager:v0.27.0",
                 "restart": "unless-stopped",
-                "ports": ["9093:9093"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('alertmanager', 9093)}:9093"] if self.ctx.environment == "local" else [],
                 "volumes": [
                     "./configs/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro",
                 ],

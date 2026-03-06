@@ -21,7 +21,10 @@ class Neo4jModule(BaseModule):
             "neo4j": {
                 "image": f"neo4j:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["7474:7474", "7687:7687"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('neo4j', 7474)}:7474",
+                    f"{self.ctx.host_port_map.get('neo4j-bolt', 7687)}:7687"
+                ] if self.ctx.environment == "local" else [],
                 "environment": {
                     "NEO4J_AUTH": "neo4j/${NEO4J_PASSWORD}",
                 },

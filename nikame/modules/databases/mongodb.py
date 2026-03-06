@@ -28,7 +28,7 @@ class MongoDBModule(BaseModule):
             "mongodb": {
                 "image": f"mongo:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["27017:27017"],
+                "ports": [f"{self.ctx.host_port_map.get('mongodb', 27017)}:27017"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "MONGO_INITDB_ROOT_USERNAME": self.root_user,
                     "MONGO_INITDB_ROOT_PASSWORD": "${MONGODB_ROOT_PASSWORD}",

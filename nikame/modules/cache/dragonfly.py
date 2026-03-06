@@ -38,7 +38,7 @@ class DragonflyModule(BaseModule):
             "image": f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}",
             "restart": "unless-stopped",
             "command": f"--maxmemory={self.maxmemory} --cache_mode=true",
-            "ports": ["6379:6379"] if self.ctx.environment == "local" else [],
+            "ports": [f"{self.ctx.host_port_map.get('dragonfly', 6379)}:6379"] if self.ctx.environment == "local" else [],
             "volumes": ["dragonfly_data:/data"],
             "healthcheck": self.health_check(),
             "networks": [f"{self.ctx.project_name}_network"],

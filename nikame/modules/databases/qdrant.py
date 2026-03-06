@@ -21,7 +21,10 @@ class QdrantModule(BaseModule):
             "qdrant": {
                 "image": f"qdrant/qdrant:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["6333:6333", "6334:6334"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('qdrant', 6333)}:6333",
+                    f"{self.ctx.host_port_map.get('qdrant-grpc', 6334)}:6334"
+                ] if self.ctx.environment == "local" else [],
                 "volumes": ["qdrant_data:/qdrant/storage"],
                 "networks": [f"{self.ctx.project_name}_network"],
                 "healthcheck": self.health_check(),

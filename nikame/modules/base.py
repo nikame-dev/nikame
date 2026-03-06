@@ -42,6 +42,7 @@ class ModuleContext:
     features: list[str] = field(default_factory=list)
     wiring: dict[str, Any] = field(default_factory=dict)
     active_modules: list[str] = field(default_factory=list)
+    host_port_map: dict[str, int] = field(default_factory=dict)
 
 
 class BaseModule(ABC):

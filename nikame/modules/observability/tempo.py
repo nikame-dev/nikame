@@ -21,7 +21,7 @@ class TempoModule(BaseModule):
             "tempo": {
                 "image": f"grafana/tempo:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["3200:3200"],
+                "ports": [f"{self.ctx.host_port_map.get('tempo', 3200)}:3200"] if self.ctx.environment == "local" else [],
                 "command": ["-config.file=/etc/tempo.yaml"],
                 "volumes": [
                     "./configs/tempo/tempo.yaml:/etc/tempo.yaml:ro",

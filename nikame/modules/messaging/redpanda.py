@@ -51,7 +51,11 @@ class RedPandaModule(BaseModule):
                     "--schema-registry-addr", "internal://0.0.0.0:8081,external://0.0.0.0:18081",
                 ],
                 "ports": (
-                    ["19092:19092", "18081:18081", "9644:9644"]
+                    [
+                        f"{self.ctx.host_port_map.get('redpanda', 19092)}:19092",
+                        "18081:18081",
+                        "9644:9644"
+                    ]
                     if self.ctx.environment == "local"
                     else []
                 ),
@@ -73,7 +77,7 @@ class RedPandaModule(BaseModule):
                     "KAFKA_BROKERS": "redpanda:9092",
                     "SCHEMA_REGISTRY_URL": "http://redpanda:8081",
                 },
-                "ports": ["8080:8080"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('redpanda-console', 8080)}:8080"] if self.ctx.environment == "local" else [],
                 "depends_on": {"redpanda": {"condition": "service_healthy"}},
                 "networks": [f"{self.ctx.project_name}_network"],
                 "labels": {

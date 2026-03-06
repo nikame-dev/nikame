@@ -24,7 +24,7 @@ class KafkaModule(BaseModule):
             "kafka": {
                 "image": f"confluentinc/cp-kafka:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["9092:9092"],
+                "ports": [f"{self.ctx.host_port_map.get('kafka', 9092)}:9092"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "KAFKA_NODE_ID": "1",
                     "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT",

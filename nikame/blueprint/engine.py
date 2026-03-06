@@ -356,17 +356,59 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
             f"Cannot resolve module order: {exc}"
         ) from exc
 
-    # Step 6: Create module context
+    # Step 6: Identify and resolve port conflicts for local dev
+    host_port_map: dict[str, int] = {}
+    if config.environment.target == "local":
+        # Registry of default ports for common services
+        DEFAULT_PORTS = {
+            "postgres": 5432,
+            "redis": 6379,
+            "dragonfly": 6379,
+            "valkey": 6379,
+            "mongodb": 27017,
+            "clickhouse": 8123,
+            "clickhouse-native": 9000,
+            "qdrant": 6333,
+            "qdrant-grpc": 6334,
+            "neo4j": 7474,
+            "neo4j-bolt": 7687,
+            "kafka": 9092,
+            "redpanda": 19092,
+            "redpanda-console": 8080,
+            "traefik": 80,
+            "traefik-dashboard": 8090,
+            "grafana": 3000,
+            "prometheus": 9090,
+            "alertmanager": 9093,
+            "tempo": 3200,
+            "loki": 3100,
+            "minio": 9000,
+            "minio-console": 9001,
+            "fastapi": 8000,
+        }
+        
+        used_ports: set[int] = set()
+        for mod_name in sorted_names:
+            base_port = DEFAULT_PORTS.get(mod_name)
+            if base_port:
+                final_port = base_port
+                while final_port in used_ports:
+                    final_port += 1
+                host_port_map[mod_name] = final_port
+                used_ports.add(final_port)
+
+    # Step 7: Create module context
     ctx = ModuleContext(
         project_name=config.name,
-        environment=config.environment.profile,
+        environment=config.environment.target,
+        namespace=config.environment.profile,
         cloud=config.environment.cloud,
-        namespace=config.environment.namespace,
         domain=config.environment.domain,
         tls_enabled=bool(config.gateway and config.gateway.tls.enabled),
         resource_tier="medium",
         features=config.features,
         active_modules=list(sorted_names),
+        host_port_map=host_port_map,
     )
 
     # Step 7: Instantiate modules in sorted order

@@ -21,7 +21,10 @@ class ClickHouseModule(BaseModule):
             "clickhouse": {
                 "image": f"clickhouse/clickhouse-server:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["8123:8123", "9000:9000"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('clickhouse', 8123)}:8123",
+                    f"{self.ctx.host_port_map.get('clickhouse-native', 9000)}:9000"
+                ] if self.ctx.environment == "local" else [],
                 "ulimits": {"nofile": {"soft": 262144, "hard": 262144}},
                 "volumes": ["clickhouse_data:/var/lib/clickhouse"],
                 "networks": [f"{self.ctx.project_name}_network"],

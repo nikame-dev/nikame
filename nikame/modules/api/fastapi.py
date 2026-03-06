@@ -47,7 +47,7 @@ class FastAPIModule(BaseModule):
                     "dockerfile": "Dockerfile",
                 },
                 "restart": "unless-stopped",
-                "ports": [f"{self.port}:{self.port}"],
+                "ports": [f"{self.ctx.host_port_map.get('fastapi', self.port)}:{self.port}"],
                 "environment": {
                     "APP_NAME": self.ctx.project_name,
                     "APP_ENV": self.ctx.environment,

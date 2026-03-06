@@ -40,7 +40,10 @@ class MinIOModule(BaseModule):
                     "MINIO_ROOT_PASSWORD": "${MINIO_ROOT_PASSWORD}",
                 },
                 "ports": (
-                    ["9000:9000", "9001:9001"]
+                    [
+                        f"{self.ctx.host_port_map.get('minio', 9000)}:9000",
+                        f"{self.ctx.host_port_map.get('minio-console', 9001)}:9001"
+                    ]
                     if self.ctx.environment == "local"
                     else []
                 ),
