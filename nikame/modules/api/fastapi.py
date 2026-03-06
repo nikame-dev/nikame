@@ -888,6 +888,8 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--pro
             reqs.append("redis>=5.0.0")
         if has_messaging:
             reqs.append("aiokafka>=0.10.0")
+        if has_ngrok:
+            reqs.append("pyngrok>=7.0.0")
 
         files.append(("app/requirements.txt", "\n".join(sorted(set(reqs))) + "\n"))
         files.append(("app/.dockerignore", "__pycache__\n*.pyc\n.env\n.venv\n.git\n"))
