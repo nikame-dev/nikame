@@ -150,3 +150,34 @@ class RedisModule(BaseModule):
     def compute_cost_monthly_usd(self) -> float | None:
         """Estimate monthly cost."""
         return 15.0
+
+    def guide_metadata(self) -> dict[str, Any]:
+        """Redis-specific guide metadata."""
+        port = self.ctx.host_port_map.get("redis", 6379)
+        return {
+            "overview": self.DESCRIPTION,
+            "urls": [
+                {
+                    "label": "Redis",
+                    "url": f"localhost:{port}",
+                    "usage": "Cache and Session store",
+                    "creds": "None (default)"
+                }
+            ],
+            "integrations": [
+                {
+                    "target": "FastAPI",
+                    "description": "Used by the `cache` utility for speed and session management."
+                },
+                {
+                    "target": "Celery",
+                    "description": "Used as the result backend for background tasks."
+                }
+            ],
+            "troubleshooting": [
+                {
+                    "issue": "Redis connection timeout",
+                    "fix": "Verify that port 6379 is not being used by another process or use a custom port."
+                }
+            ],
+        }

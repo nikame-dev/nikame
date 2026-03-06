@@ -138,3 +138,27 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             ("app/api/auth/security.py", security_py),
             ("app/api/auth/router.py", router_py),
         ]
+
+    def guide_metadata(self) -> dict[str, Any]:
+        """Auth-specific guide metadata."""
+        port = self.ctx.api_port
+        return {
+            "api_examples": [
+                {
+                    "name": "User Registration",
+                    "desc": "Create a new user account",
+                    "curl": f'curl -X POST http://localhost:{port}/register -H "Content-Type: application/json" -d \'{{"email": "user@example.com", "password": "password123"}}\''
+                },
+                {
+                    "name": "User Login",
+                    "desc": "Obtain a JWT access token",
+                    "curl": f'curl -X POST http://localhost:{port}/login -d "username=user@example.com&password=password123"'
+                }
+            ],
+            "feature_guides": [
+                {
+                    "title": "JWT Authentication Flow",
+                    "content": "This project uses JWT (JSON Web Tokens) for authentication. After logging in, you will receive an `access_token`. Include this token in the `Authorization` header for protected routes: `Authorization: Bearer <your_token>`."
+                }
+            ]
+        }

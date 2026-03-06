@@ -169,6 +169,40 @@ class FastAPIModule(BaseModule):
             "API_URL": f"http://api:{self.port}",
         }
 
+    def guide_metadata(self) -> dict[str, Any]:
+        """FastAPI-specific guide metadata."""
+        port = self.ctx.host_port_map.get("fastapi", self.port)
+        return {
+            "overview": self.DESCRIPTION,
+            "urls": [
+                {
+                    "label": "API (Swagger)",
+                    "url": f"http://localhost:{port}/docs",
+                    "usage": "Interactive API documentation",
+                    "creds": "None"
+                },
+                {
+                    "label": "API (Redoc)",
+                    "url": f"http://localhost:{port}/redoc",
+                    "usage": "Alternative API documentation",
+                    "creds": "None"
+                }
+            ],
+            "api_examples": [
+                {
+                    "name": "Health Check",
+                    "desc": "Check if the API and its dependencies are healthy",
+                    "curl": f"curl -X GET http://localhost:{port}/health/ready"
+                }
+            ],
+            "troubleshooting": [
+                {
+                    "issue": "API not reachable",
+                    "fix": f"Check if port {port} is occupied by another process or if the container is running."
+                }
+            ],
+        }
+
     def prometheus_rules(self) -> list[dict[str, Any]]:
         """Prometheus alert rules for the FastAPI service."""
         return [

@@ -26,5 +26,28 @@ class NgrokModule(BaseModule):
             "NGROK_AUTHTOKEN": "",
         }
 
-    def get_dependencies(self) -> list[str]:
-        return []
+    def guide_metadata(self) -> dict[str, Any]:
+        """Ngrok-specific guide metadata."""
+        return {
+            "overview": self.DESCRIPTION,
+            "urls": [
+                {
+                    "label": "Ngrok Agent API",
+                    "url": "http://localhost:4040",
+                    "usage": "Inspect local tunnel traffic",
+                    "creds": "None"
+                }
+            ],
+            "feature_guides": [
+                {
+                    "title": "Exposing your API with Ngrok",
+                    "content": "To share your local API with others, ensure you have set `NGROK_AUTHTOKEN` in your `.env` file. When you run `nikame up`, a public tunnel will be created automatically, and the URL will be printed in the FastAPI logs."
+                }
+            ],
+            "troubleshooting": [
+                {
+                    "issue": "Ngrok tunnel failed to start",
+                    "fix": "Check if your `NGROK_AUTHTOKEN` is valid and that you aren't exceeding your plan's tunnel limits."
+                }
+            ],
+        }

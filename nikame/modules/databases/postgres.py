@@ -316,6 +316,37 @@ class PostgresModule(BaseModule):
         tier_costs = {"small": 25.0, "medium": 60.0, "large": 180.0, "xlarge": 400.0}
         return tier_costs.get(self.ctx.resource_tier, 60.0)
 
+    def guide_metadata(self) -> dict[str, Any]:
+        """Postgres-specific guide metadata."""
+        port = self.ctx.host_port_map.get("postgres", 5432)
+        return {
+            "overview": self.DESCRIPTION,
+            "urls": [
+                {
+                    "label": "PostgreSQL",
+                    "url": f"localhost:{port}",
+                    "usage": "Primary SQL database",
+                    "creds": "postgres / ${POSTGRES_PASSWORD}"
+                }
+            ],
+            "integrations": [
+                {
+                    "target": "FastAPI",
+                    "description": "Connects via SQLAlchemy using the `POSTGRES_URL` env var."
+                }
+            ],
+            "troubleshooting": [
+                {
+                    "issue": "Database connection refused",
+                    "fix": "Run `nikame up` and check if the `postgres` container is healthy."
+                },
+                {
+                    "issue": "Authentication failed",
+                    "fix": "Ensure `POSTGRES_PASSWORD` in `.env` matches the one used during first start."
+                }
+            ],
+        }
+
     def resource_requirements(self) -> dict[str, Any]:
         """K8s resource requests/limits for PostgreSQL."""
         return {

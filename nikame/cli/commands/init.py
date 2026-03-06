@@ -255,6 +255,14 @@ def _generate_project(
     # Step 14: .gitignore
     writer.write_gitignore()
 
+    # Step 15: Project Guide (GUIDE.md)
+    if config.generate_guide:
+        with console.status("[info]Generating project guide (GUIDE.md)...[/info]"):
+            from nikame.codegen.guide import GuideGenerator
+            guide_gen = GuideGenerator(blueprint)
+            guide_content = guide_gen.generate()
+            writer.write_file("GUIDE.md", guide_content)
+
     # Done!
     writer.print_summary()
 
@@ -670,6 +678,11 @@ def _generate_github_actions(output_dir: Path) -> None:
     default=False,
     help="Skip interactive wizard.",
 )
+@click.option(
+    "--guide/--no-guide",
+    default=None,
+    help="Generate project-specific GUIDE.md (overrides config).",
+)
 @click.pass_context
 def init(
     ctx: click.Context,
@@ -678,6 +691,7 @@ def init(
     output: Path,
     dry_run: bool,
     no_interactive: bool,
+    guide: bool | None,
 ) -> None:
     """Initialize a new NIKAME project.
 
@@ -704,6 +718,10 @@ def init(
             # Default to saas-starter if no-interactive is set but no config provided
             console.print("[info]No config/preset and --no-interactive set, using saas-starter[/info]")
             nikame_config = load_config_from_dict(PRESETS["saas-starter"])
+
+        # CLI overrides
+        if guide is not None:
+            nikame_config.generate_guide = guide
 
         # Override output name if using preset
         output_dir = output / nikame_config.name if output == Path(".") else output

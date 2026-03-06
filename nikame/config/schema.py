@@ -383,6 +383,7 @@ class NikameConfig(BaseModel):
     )
     features: list[str] = Field(default_factory=list)
     plugins: list[str] = Field(default_factory=list)
+    generate_guide: bool = True
 
     @field_validator("name")
     @classmethod

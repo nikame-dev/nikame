@@ -183,6 +183,19 @@ class BaseModule(ABC):
         """
         return None
 
+    def guide_metadata(self) -> dict[str, Any]:
+        """Return metadata for GUIDE.md generation.
+        
+        Returns:
+            Dict containing overview, urls, integrations, and troubleshooting.
+        """
+        return {
+            "overview": self.DESCRIPTION,
+            "urls": [],
+            "integrations": [],
+            "troubleshooting": [],
+        }
+
     def resource_requirements(self) -> dict[str, Any]:
         """Return Kubernetes resource requests and limits.
 

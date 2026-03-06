@@ -90,6 +90,17 @@ class BaseCodegen(ABC):
         """Return the wiring info for this feature."""
         return WiringInfo()
 
+    def guide_metadata(self) -> dict[str, Any]:
+        """Return documentation metadata for this feature.
+        
+        Returns:
+            Dict containing api_examples, feature guides, and instructions.
+        """
+        return {
+            "api_examples": [],
+            "feature_guides": [],
+        }
+
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Return K8s manifests for this feature."""
         return []

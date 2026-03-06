@@ -154,10 +154,16 @@ def run_wizard() -> dict[str, Any]:
 
     selected_features.extend(selected_advanced)
 
+    # 12. Guide
+    generate_guide = questionary.confirm(
+        "Generate a project-specific GUIDE.md?", default=True
+    ).ask()
+
     # Assemble
     config_dict = {
         "name": name,
         "environment": {"target": target, "profile": profile},
+        "generate_guide": generate_guide,
     }
     if api_config:
         config_dict["api"] = api_config
