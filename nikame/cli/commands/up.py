@@ -9,6 +9,7 @@ import time
 import click
 
 from nikame.utils.logger import console
+from nikame.blueprint.engine import build_blueprint
 
 
 @click.command()
@@ -119,7 +120,8 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
         _verify_health(config.name)
         
         # Priority 6: Display Ngrok Tunnel (if active)
-        if "ngrok" in [m.name for m in config.modules]:
+        blueprint = build_blueprint(config)
+        if "ngrok" in [m.NAME for m in blueprint.modules]:
             _display_ngrok_tunnel()
         
     except subprocess.CalledProcessError as e:
