@@ -4,6 +4,7 @@ Provides automated audit trails and context tracking.
 """
 
 from __future__ import annotations
+import logging
 from nikame.codegen.base import BaseCodegen
 from nikame.codegen.registry import register_codegen
 

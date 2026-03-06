@@ -7,6 +7,7 @@ and idempotent writes. All file output in NIKAME goes through this module.
 from __future__ import annotations
 
 import secrets
+import json
 from pathlib import Path
 from typing import Any
 

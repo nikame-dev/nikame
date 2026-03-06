@@ -4,6 +4,7 @@ Provides ASGI/FastAPI JWT-based authentication, user registration, and login.
 """
 
 from __future__ import annotations
+import logging
 from nikame.codegen.base import BaseCodegen
 from nikame.codegen.registry import register_codegen
 

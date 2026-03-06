@@ -4,6 +4,9 @@ Provides MinIO integration for file storage.
 """
 
 from __future__ import annotations
+import logging
+import os
+import uuid
 from nikame.codegen.base import BaseCodegen
 from nikame.codegen.registry import register_codegen
 
