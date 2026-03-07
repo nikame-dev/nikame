@@ -902,35 +902,41 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
 
 FROM python:3.11-slim
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /install /usr/local
 COPY . .
 RUN useradd -m appuser && chown -R appuser /app
 USER appuser
 EXPOSE {self.port}
+HEALTHCHECK --interval=15s --timeout=5s --retries=3 CMD curl -f http://localhost:{self.port}/health || exit 1
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--proxy-headers", "--forwarded-allow-ips", "*"]
 '''
         files.append(("app/Dockerfile", dockerfile))
 
         # 8. app/requirements.txt
         reqs = [
-            "fastapi>=0.109.0",
-            "uvicorn[standard]>=0.27.0",
-            "pydantic-settings>=2.1.0",
-            "httpx>=0.26.0",
+            "fastapi>=0.109.0,<1.0.0",
+            "uvicorn[standard]>=0.27.0,<1.0.0",
+            "pydantic-settings>=2.1.0,<3.0.0",
+            "httpx>=0.26.0,<1.0.0",
             "python-logging-loki>=0.3.1",
         ]
         if has_db:
-            reqs.extend(["sqlalchemy>=2.0.0", "asyncpg>=0.29.0"])
+            reqs.extend([
+                "sqlalchemy>=2.0.0,<3.0.0",
+                "asyncpg>=0.29.0,<1.0.0",
+                "alembic>=1.13.0,<2.0.0",
+            ])
         if has_cache:
-            reqs.append("redis>=5.0.0")
+            reqs.append("redis>=5.0.0,<6.0.0")
         if has_messaging:
-            reqs.append("aiokafka>=0.10.0")
+            reqs.append("aiokafka>=0.10.0,<1.0.0")
         if has_ngrok:
             reqs.append("pyngrok>=7.0.0")
 
         files.append(("app/requirements.txt", "\n".join(sorted(set(reqs))) + "\n"))
-        files.append(("app/.dockerignore", "__pycache__\n*.pyc\n.env\n.venv\n.git\n"))
+        files.append(("app/.dockerignore", "__pycache__\n*.pyc\n.env\n.venv\n.git\ntests/\nalembic/\n"))
 
         return files
 

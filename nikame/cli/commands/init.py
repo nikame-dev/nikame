@@ -255,8 +255,30 @@ def _generate_project(
         engine = MatrixEngine(config, blueprint, writer)
         engine.execute()
 
+    # Step 13.6: Database Migrations (Alembic)
+    active_module_names = {m.NAME for m in blueprint.modules}
+    if "postgres" in active_module_names:
+        with console.status("[info]Generating Alembic migration scaffold...[/info]"):
+            from nikame.codegen.migrations import generate_alembic_files
+            db_url_env = "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost:5432/${POSTGRES_DB}"
+            for rel_path, content in generate_alembic_files(config.name, db_url_env):
+                writer.write_file(rel_path, content)
+
     # Step 14: Blueprint snapshot
     writer.write_blueprint(blueprint.to_dict())
+
+    # Step 14.5: Test Skeleton
+    with console.status("[info]Generating test skeleton...[/info]"):
+        from nikame.codegen.test_skeleton import generate_test_files
+        active_module_names_set = {m.NAME for m in blueprint.modules}
+        test_files = generate_test_files(
+            project_name=config.name,
+            has_postgres="postgres" in active_module_names_set,
+            has_redis="redis" in active_module_names_set or "dragonfly" in active_module_names_set,
+            has_auth="auth" in (config.features or []),
+        )
+        for rel_path, content in test_files:
+            writer.write_file(rel_path, content)
 
     # Step 14: .gitignore
     writer.write_gitignore()
@@ -424,10 +446,13 @@ def _write_env_files(
     env_descriptions: dict[str, str] = {
         "APP_NAME": "Application name",
         "APP_ENV": "Application environment (local/staging/production)",
+        "SECRET_KEY": "Application-wide signing secret (auto-generated)",
         "CORS_ORIGINS": "CORS allowed origins (comma-separated)",
         "POSTGRES_DB": "PostgreSQL database name",
         "POSTGRES_USER": "PostgreSQL username",
         "POSTGRES_PASSWORD": "PostgreSQL password (auto-generated)",
+        "JWT_SECRET_KEY": "JWT signing secret (auto-generated)",
+        "REDIS_PASSWORD": "Redis/Dragonfly password (auto-generated)",
         "MINIO_ROOT_USER": "MinIO root username",
         "MINIO_ROOT_PASSWORD": "MinIO root password (auto-generated)",
         "KEYCLOAK_ADMIN": "Keycloak admin username",
@@ -438,15 +463,18 @@ def _write_env_files(
     env_defaults: dict[str, str] = {
         "APP_NAME": blueprint.project_name,
         "APP_ENV": "local",
+        "SECRET_KEY": "",
         "CORS_ORIGINS": "*",
         "POSTGRES_DB": "app",
         "POSTGRES_USER": "postgres",
         "POSTGRES_PASSWORD": "",
+        "JWT_SECRET_KEY": "",
+        "REDIS_PASSWORD": "",
         "MINIO_ROOT_USER": "minioadmin",
         "MINIO_ROOT_PASSWORD": "",
         "KEYCLOAK_ADMIN": "admin",
         "KEYCLOAK_ADMIN_PASSWORD": "",
-        "GRAFANA_ADMIN_PASSWORD": "admin",
+        "GRAFANA_ADMIN_PASSWORD": "",
     }
 
     # Only include env vars for active modules
@@ -459,7 +487,11 @@ def _write_env_files(
         should_include = False
         if key.startswith("APP") or key == "CORS_ORIGINS":
             should_include = True
+        elif key in ("SECRET_KEY", "JWT_SECRET_KEY"):
+            should_include = True
         elif key.startswith("POSTGRES") and "postgres" in active_module_names:
+            should_include = True
+        elif key.startswith("REDIS") and ("redis" in active_module_names or "dragonfly" in active_module_names):
             should_include = True
         elif key.startswith("MINIO") and "minio" in active_module_names:
             should_include = True
