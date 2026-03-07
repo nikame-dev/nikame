@@ -170,6 +170,14 @@ class BaseModule(ABC):
         """
         return []
 
+    def prometheus_scrape_targets(self) -> list[dict[str, Any]]:
+        """Return Prometheus scrape targets for this module.
+
+        Returns:
+            List of Prometheus scrape target dicts.
+        """
+        return []
+
     def terraform_resources(self) -> dict[str, Any] | None:
         """Return Terraform resource blocks for cloud-managed equivalents.
 

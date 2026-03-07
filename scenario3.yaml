@@ -1,0 +1,34 @@
+name: test-full-saas
+version: "1.0"
+description: "Full SaaS Stack Test"
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  elasticsearch: {}
+  qdrant: {}
+  minio: {}
+cache:
+  provider: dragonfly
+messaging:
+  redpanda: {}
+worker:
+  provider: celery
+auth:
+  provider: keycloak
+observability:
+  stack: full
+features:
+  - auth
+  - rate_limiting
+  - health_check
+  - multi_tenancy
+mlops:
+  models:
+    - name: llm
+      source: huggingface
+      model: mistralai/Mistral-7B-v0.1
+      serve_with: vllm

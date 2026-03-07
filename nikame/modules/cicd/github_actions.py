@@ -87,3 +87,9 @@ jobs:
         return [
             (".github/workflows/main.yml", workflow_yml)
         ]
+
+    def health_check(self) -> dict[str, Any]:
+        return {}
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        return []

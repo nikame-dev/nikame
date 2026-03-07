@@ -18,8 +18,9 @@ class OllamaModule(BaseModule):
         return {"ollama": 11434}
 
     def compose_spec(self) -> dict[str, Any]:
+        svc_name = self.config.get("name", f"ollama-{self.ctx.project_name}")
         return {
-            f"ollama-{self.ctx.project_name}": {
+            svc_name: {
                 "image": f"ollama/ollama:{self.version}",
                 "volumes": [
                     "ollama_data:/root/.ollama",
@@ -50,3 +51,6 @@ class OllamaModule(BaseModule):
             "timeout": "10s",
             "retries": 3,
         }
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        return []

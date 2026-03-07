@@ -22,8 +22,9 @@ class LlamaCppModule(BaseModule):
         self.model_path = config.get("model_path")
 
     def compose_spec(self) -> dict[str, Any]:
+        svc_name = self.config.get("name", f"llamacpp-{self.ctx.project_name}")
         return {
-            f"llamacpp-{self.ctx.project_name}": {
+            svc_name: {
                 "image": "ghcr.io/ggerganov/llama.cpp:server",
                 "command": [
                     "-m", f"/models/{self.model_path}",
@@ -46,3 +47,6 @@ class LlamaCppModule(BaseModule):
             "timeout": "10s",
             "retries": 3,
         }
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        return []

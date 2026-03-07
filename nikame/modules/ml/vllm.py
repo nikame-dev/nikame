@@ -24,8 +24,9 @@ class VLLMModule(BaseModule):
         self.tensor_parallel = config.get("tensor_parallel_size", 1)
 
     def compose_spec(self) -> dict[str, Any]:
+        svc_name = self.config.get("name", f"vllm-{self.ctx.project_name}")
         return {
-            f"vllm-{self.ctx.project_name}": {
+            svc_name: {
                 "image": f"vllm/vllm-openai:{self.version}",
                 "command": [
                     "--model", str(self.model),
@@ -58,3 +59,6 @@ class VLLMModule(BaseModule):
             "timeout": "10s",
             "retries": 3,
         }
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        return []

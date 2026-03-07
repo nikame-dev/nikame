@@ -85,3 +85,10 @@ class TemporalModule(BaseModule):
     def env_vars(self) -> dict[str, str]:
         """Expose TEMPORAL_URL."""
         return {"TEMPORAL_URL": "temporal:7233"}
+
+    def health_check(self) -> dict[str, Any]:
+        """Temporal health check."""
+        return {
+            "test": ["CMD", "tctl", "cluster", "health"],
+            "interval": "30s",
+        }

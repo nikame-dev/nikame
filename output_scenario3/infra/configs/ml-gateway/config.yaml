@@ -1,0 +1,9 @@
+litellm_settings:
+  drop_params: true
+  set_fastapi_logging: true
+model_list:
+- litellm_params:
+    api_base: http://llm:8000/v1
+    api_key: not-needed
+    model: openai/llm
+  model_name: llm

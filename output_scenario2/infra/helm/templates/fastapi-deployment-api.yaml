@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: local
+  labels:
+    app: api
+    nikame.module: fastapi
+spec:
+  replicas: {{ .Values.fastapi.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: api
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;
+      containers:
+      - name: api
+        image: test-event-scenario-api:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: api
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10

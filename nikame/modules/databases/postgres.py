@@ -25,6 +25,15 @@ class PostgresModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.max_connections: int = config.get("max_connections", 100)
+        self.replicas: int = config.get("replicas", 1)
+        self.pgbouncer: bool = config.get("pgbouncer", True)
+        self.storage: str = config.get("storage", "10Gi")
+        self.extensions: list[str] = config.get("extensions", [])
+
+
     def required_ports(self) -> dict[str, int]:
         """Standard PostgreSQL port."""
         return {"postgres": 5432}

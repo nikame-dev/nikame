@@ -27,6 +27,12 @@ class DragonflyModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS = ["cache.redis"]
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.maxmemory: str = config.get("maxmemory", "1gb")
+        self.eviction_policy: str = config.get("eviction_policy", "allkeys-lru")
+
+
     def required_ports(self) -> dict[str, int]:
         """Standard Redis-compatible port for Dragonfly."""
         return {"dragonfly": 6379}

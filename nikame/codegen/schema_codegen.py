@@ -34,12 +34,13 @@ class SchemaCodegen:
         self.config = config
         template_dir = Path(__file__).parent.parent / "templates" / "codegen" / "schema"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))
-        self.writer = FileWriter()
 
     def generate(self, output_dir: Path) -> None:
         """Render all model-based files."""
         if not self.config.models:
             return
+            
+        self.writer = FileWriter(output_dir)
 
         # Ensure directories exist
         (output_dir / "app" / "models").mkdir(parents=True, exist_ok=True)
@@ -104,8 +105,8 @@ class SchemaCodegen:
         for r_name, r_cfg in cfg.relationships.items():
             processed_relationships[r_name] = {
                 "type": r_cfg.type,
-                "target_model": r_cfg.target,
-                "target_table": r_cfg.target.lower(),
+                "target_model": r_cfg.model,
+                "target_table": r_cfg.model.lower(),
                 "backref": r_cfg.backref or f"{name.lower()}{'s' if r_cfg.type == 'many-to-one' else ''}",
                 "id_type": "int",
             }
@@ -123,7 +124,7 @@ class SchemaCodegen:
         """Parse a field definition into template-ready context."""
         if isinstance(field_val, str):
             f_type_raw = field_val
-            f_cfg = FieldConfig(type=field_val, primary_key=primary_key)
+            f_cfg = FieldConfig(type=field_val)
         else:
             f_type_raw = field_val.type
             f_cfg = field_val
@@ -143,7 +144,11 @@ class SchemaCodegen:
             res["target_model"] = f_type_raw[5:-1]
             res["rel_type"] = "one-to-many"
 
-        # Handle Enum: enum[val1, val2]
+        # Handle Enum: type="enum" with values=[...] OR shorthand: enum[val1, val2]
+        elif f_type_raw == "enum" and f_cfg.values:
+            res["enum_values"] = f_cfg.values
+            res["python_type"] = "str"
+            res["sa_type"] = "String"
         elif f_type_raw.startswith("enum["):
             vals = [v.strip() for v in f_type_raw[5:-1].split(",")]
             res["enum_values"] = vals

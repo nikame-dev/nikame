@@ -24,3 +24,9 @@ class ModelDownloaderModule(BaseModule):
                 "networks": [f"{self.ctx.project_name}_network"],
             }
         }
+
+    def health_check(self) -> dict[str, Any]:
+        return {}
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        return []

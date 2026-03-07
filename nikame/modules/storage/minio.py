@@ -24,6 +24,11 @@ class MinIOModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.buckets: list[str] = config.get("buckets", ["uploads"])
+
+
     def required_ports(self) -> dict[str, int]:
         """Ports for MinIO S3 API and Console."""
         return {

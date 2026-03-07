@@ -324,11 +324,12 @@ class FieldConfig(BaseModel):
     """Configuration for a single model field."""
 
     type: str = "str"
-    primary_key: bool = False
-    index: bool = False
+    required: bool = False
+    indexed: bool = False
     unique: bool = False
     nullable: bool = True
     default: Any = None
+    values: list[str] | None = None  # For enum types
     searchable: bool = False
     sortable: bool = True
 
@@ -337,7 +338,7 @@ class RelationshipConfig(BaseModel):
     """Configuration for model-to-model relationships."""
 
     type: Literal["one-to-many", "many-to-one", "many-to-many", "one-to-one"]
-    target: str
+    model: str
     backref: str | None = None
     on_delete: Literal["CASCADE", "SET NULL", "RESTRICT"] = "SET NULL"
 
@@ -350,6 +351,27 @@ class DataModelConfig(BaseModel):
     soft_delete: bool = False
     audit_log: bool = False
     admin_panel: bool = True
+
+
+# ──────────────────────────── Project Metadata ────────────────────────────
+
+
+class ProjectConfig(BaseModel):
+    """Deep metadata for project automation."""
+
+    type: Literal[
+        "saas",
+        "marketplace",
+        "content_platform",
+        "api_service",
+        "data_pipeline",
+        "ml_platform",
+        "internal_tool",
+        "ecommerce",
+    ] = "saas"
+    scale: Literal["small", "medium", "large"] = "small"
+    access_pattern: Literal["read_heavy", "write_heavy", "balanced"] = "balanced"
+    raw_models: str | None = None
 
 
 # ──────────────────────────── ROOT CONFIG ────────────────────────────
@@ -365,6 +387,7 @@ class NikameConfig(BaseModel):
     name: str
     version: str = "1.0"
     description: str = ""
+    project: ProjectConfig = Field(default_factory=ProjectConfig)
     environment: EnvironmentConfig = Field(default_factory=EnvironmentConfig)
     api: APIConfig | None = None
     databases: DatabasesConfig | None = None

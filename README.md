@@ -3,12 +3,52 @@
 [![CI](https://github.com/nikame-dev/nikame/actions/workflows/ci.yml/badge.svg)](https://github.com/nikame-dev/nikame/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/nikame.svg)](https://badge.fury.io/py/nikame)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Python Versions](https://img.shields.io/pypi/pyversions/nikame.svg)](https://pypi.org/project/nikame/)
 
-**Describe your infrastructure. NIKAME builds it.**
+**Describe your infrastructure. NIKAME builds the glue.**
 
-NIKAME is a Python-first infrastructure automation framework designed for modern engineering teams. Instead of manually writing thousands of lines of YAML and HCL, you define your high-level architecture in a single `nikame.yaml` file. 
+NIKAME is the intelligent infrastructure framework that understands how your modules should work together. Unlike traditional scaffolding tools that just spit out template files, NIKAME features the **Matrix Engine**—a central intelligence layer that detects module combinations and automatically generates the complex "glue code" required for production-grade integrations.
 
-NIKAME handles the rest: generating best-practice Docker Compose files, production-grade Kubernetes manifests (complete with HPA, PDB, and NetworkPolicies), parameterized Helm charts, and cloud-ready Terraform modules.
+---
+
+## 🚀 Why NIKAME?
+
+Manual infrastructure wiring is error-prone and tedious. NIKAME solves this by providing:
+
+- **Intelligent Matrix Engine**: Detects active modules and automatically injects integration layers (e.g., if you have `Postgres` and `Redpanda`, it automatically adds the **Transactional Outbox Pattern**).
+- **Production-Grade by Default**: Generates Kubernetes manifests with HPAs, PDBs, NetworkPolicies, and ResourceQuotas.
+- **Smart Stacks**: Pre-optimized blueprints for RAG, SaaS, Event-Driven, and Real-time Analytics.
+- **Cloud Native**: One-command Terraform and Helm generation for AWS, GCP, and Azure.
+
+---
+
+## 🛠️ CLI Commands
+
+| Command | Description |
+|:---|:---|
+| `nikame init` | Initialize a new project from a config file or preset. |
+| `nikame up` | Start local services using Docker Compose. |
+| `nikame down` | Stop local services and clean up. |
+| `nikame add <mod>` | Add a new module (e.g., `qdrant`, `valkey`) to your active config. |
+| `nikame remove <mod>`| Safely remove a module and its associated resources. |
+| `nikame regenerate` | Refresh generated files after manual YAML edits. |
+| `nikame diff` | Detect drift between your `nikame.yaml` and generated infra. |
+| `nikame ml pull` | Pull production-ready ML models from HuggingFace to local cache. |
+| `nikame github` | Synchronize environment secrets directly to GitHub repository secrets. |
+| `nikame tunnel` | Expose local services to the internet via ngrok for testing. |
+
+---
+
+## 🌟 Intelligent "Matrix" Integrations
+
+NIKAME doesn't just provision services; it wires them. Here are some of the **10+ automatic integrations** the Matrix Engine handles:
+
+- **RAG Pipeline**: Wires `vLLM` + `Qdrant` + `MinIO` into a production-ready API.
+- **Transactional Outbox**: Guarantees event delivery between `Postgres` and `Redpanda`.
+- **Search Sync**: Real-time synchronization between `PostgreSQL` and `Elasticsearch`.
+- **Cache-Aside**: Pre-wired caching logic between `FastAPI` and `Redis/Dragonfly`.
+- **Auth Proxy**: Seamless OIDC integration between `Keycloak` and your API services.
+- **Distributed Tracing**: Automatic propagation through `OpenTelemetry` across all services.
 
 ---
 
@@ -28,54 +68,9 @@ nikame up
 
 ---
 
-## 🛠️ CLI Commands
-
-| Command | Description |
-|:---|:---|
-| `nikame init` | Initialize a new project from a config file or preset. |
-| `nikame up` | Start infrastructure services (Local: Docker Compose, Cloud: Terraform/Helm). |
-| `nikame add <module>` | Add a new module (e.g., `postgres`, `qdrant`) to your active config. |
-| `nikame remove <mod>` | Safely remove a module and its associated resources. |
-| `nikame diff` | Detect drift between your `nikame.yaml` and the generated infra. |
-| `nikame regenerate` | Refresh generated files if you've manually edited the YAML config. |
-| `nikame ml pull` | Pull production-ready ML models from HuggingFace to your local cache. |
-| `nikame github` | Synchronize environment secrets directly to GitHub repository secrets. |
-| `nikame destroy` | Tear down all infrastructure and optionally wipe persistent volumes. |
-| `nikame login` | Authenticate with NIKAME Hub for community plugins and presets. |
-
----
-
-## 🌟 What can you build with NIKAME?
-
-### 1. High-Performance SaaS Starter
-Generate a full-stack architecture with **FastAPI**, **PostgreSQL** (managed via RDS), **Redis** caching, and **Keycloak** for OIDC authentication. Includes **Stripe** integration skeleton and **Grafana** dashboards for business metrics out of the box.
-
-### 2. RAG (Retrieval-Augmented Generation) Engine
-Deploy a production-ready vector search stack. NIKAME will provision **Qdrant**, an **Unstructured** worker for PDF parsing, **vLLM** for local inference, and **Celery** for background embedding jobs — all networked and secured.
-
-### 3. Real-Time Analytics Pipeline
-Build an event-driven system using **RedPanda** (Kafka-compatible), **ClickHouse** for OLAP storage, and **Grafana** for real-time visualization. NIKAME configures the consumer groups and storage retention policies automatically.
-
-### 4. Enterprise-Grade API Gateway
-Orchestrate **Traefik** or **Nginx** Ingress with automatic **Let's Encrypt** TLS, **Redis-backed rate limiting**, and **OpenTelemetry** tracing for every request across your microservices.
-
-### 5. Multi-Tenant Internal Platform
-Create an internal PaaS for your team. Use NIKAME to enforce **ResourceQuotas**, **NetworkPolicies** for namespace isolation, and **Sealed Secrets** for secure GitOps workflows.
-
----
-
-## 📦 Core Capabilities
-
-- **Compute Optimized**: Automatically selects instance types and resource limits based on your `resource_tier`.
-- **Production Hardened**: Generates HPAs, PDBs, and NetworkPolicies by default.
-- **Cloud Native**: Supports one-command Terraform generation for **AWS**, **GCP**, and **Azure**.
-- **MLOps Ready**: Integrated model management and serving backend selection (Ollama, vLLM, etc.).
-
----
-
 ## 🤝 Maintainer
 
-This project is created and maintained by [@omdeepb69](https://github.com/omdeepb69). Contributions via Pull Requests are always welcome!
+This project is created and maintained by [@omdeepb69](https://github.com/omdeepb69).
 
 ---
 

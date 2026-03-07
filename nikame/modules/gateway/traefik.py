@@ -25,6 +25,12 @@ class TraefikModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.tls_enabled: bool = config.get("tls_enabled", False)
+        self.tls_email: str = config.get("tls_email", "admin@example.com")
+
+
     def required_ports(self) -> dict[str, int]:
         """Ports for Traefik and its Dashboard."""
         return {

@@ -63,6 +63,67 @@ class KeycloakModule(BaseModule):
             }
         }
 
+    def health_check(self) -> dict[str, Any]:
+        """Keycloak health endpoint."""
+        return {
+            "test": ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'UP'"],
+            "interval": "30s",
+            "timeout": "10s",
+            "retries": 5,
+            "start_period": "60s",
+        }
+
+    def env_vars(self) -> dict[str, str]:
+        """Auth env vars for other services."""
+        return {
+            "KEYCLOAK_URL": "http://keycloak:8080",
+            "OIDC_ISSUER_URL": "http://keycloak:8080/realms/main",
+        }
+
+    def prometheus_rules(self) -> list[dict[str, Any]]:
+        """Prometheus alert rules for Keycloak."""
+        return [
+            {
+                "alert": "KeycloakDown",
+                "expr": "up{job='keycloak'} == 0",
+                "for": "1m",
+                "labels": {"severity": "critical"},
+                "annotations": {"summary": "Keycloak is down"},
+            },
+            {
+                "alert": "KeycloakHighLoginFailures",
+                "expr": "rate(keycloak_login_error_total[5m]) > 10",
+                "for": "5m",
+                "labels": {"severity": "warning"},
+                "annotations": {"summary": "High login failure rate on Keycloak"},
+            },
+        ]
+
+    def grafana_dashboard(self) -> dict[str, Any] | None:
+        """Grafana dashboard for Keycloak."""
+        return {
+            "title": f"{self.ctx.project_name} — Keycloak",
+            "uid": "nikame-keycloak",
+            "panels": [
+                {"title": "Login Success Rate", "type": "stat", "targets": [{"expr": "rate(keycloak_login_total[5m])"}]},
+                {"title": "Login Failures", "type": "timeseries", "targets": [{"expr": "rate(keycloak_login_error_total[5m])"}]},
+                {"title": "Active Sessions", "type": "gauge", "targets": [{"expr": "keycloak_sessions_count"}]},
+                {"title": "JVM Memory", "type": "timeseries", "targets": [{"expr": "jvm_memory_used_bytes{job='keycloak'}"}]},
+            ],
+        }
+
+    def compute_cost_monthly_usd(self) -> float | None:
+        """Estimate monthly cost."""
+        return 20.0
+
+    def resource_requirements(self) -> dict[str, Any]:
+        """K8s resource requests/limits."""
+        return {
+            "requests": {"cpu": "500m", "memory": "1Gi"},
+            "limits": {"cpu": "1000m", "memory": "2Gi"},
+        }
+
+    def k8s_manifests(self) -> list[dict[str, Any]]:
         # 1. Deployment with Init Container
         deployment: dict[str, Any] = {
             "apiVersion": "apps/v1",
@@ -123,63 +184,3 @@ class KeycloakModule(BaseModule):
             self.hpa("keycloak", min_reps=1, max_reps=5),
             self.pdb("keycloak"),
         ]
-
-    def health_check(self) -> dict[str, Any]:
-        """Keycloak health endpoint."""
-        return {
-            "test": ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health HTTP/1.1\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'UP'"],
-            "interval": "30s",
-            "timeout": "10s",
-            "retries": 5,
-            "start_period": "60s",
-        }
-
-    def env_vars(self) -> dict[str, str]:
-        """Auth env vars for other services."""
-        return {
-            "KEYCLOAK_URL": "http://keycloak:8080",
-            "OIDC_ISSUER_URL": "http://keycloak:8080/realms/main",
-        }
-
-    def prometheus_rules(self) -> list[dict[str, Any]]:
-        """Prometheus alert rules for Keycloak."""
-        return [
-            {
-                "alert": "KeycloakDown",
-                "expr": "up{job='keycloak'} == 0",
-                "for": "1m",
-                "labels": {"severity": "critical"},
-                "annotations": {"summary": "Keycloak is down"},
-            },
-            {
-                "alert": "KeycloakHighLoginFailures",
-                "expr": "rate(keycloak_login_error_total[5m]) > 10",
-                "for": "5m",
-                "labels": {"severity": "warning"},
-                "annotations": {"summary": "High login failure rate on Keycloak"},
-            },
-        ]
-
-    def grafana_dashboard(self) -> dict[str, Any] | None:
-        """Grafana dashboard for Keycloak."""
-        return {
-            "title": f"{self.ctx.project_name} — Keycloak",
-            "uid": "nikame-keycloak",
-            "panels": [
-                {"title": "Login Success Rate", "type": "stat", "targets": [{"expr": "rate(keycloak_login_total[5m])"}]},
-                {"title": "Login Failures", "type": "timeseries", "targets": [{"expr": "rate(keycloak_login_error_total[5m])"}]},
-                {"title": "Active Sessions", "type": "gauge", "targets": [{"expr": "keycloak_sessions_count"}]},
-                {"title": "JVM Memory", "type": "timeseries", "targets": [{"expr": "jvm_memory_used_bytes{job='keycloak'}"}]},
-            ],
-        }
-
-    def compute_cost_monthly_usd(self) -> float | None:
-        """Estimate monthly cost."""
-        return 20.0
-
-    def resource_requirements(self) -> dict[str, Any]:
-        """K8s resource requests/limits."""
-        return {
-            "requests": {"cpu": "500m", "memory": "1Gi"},
-            "limits": {"cpu": "1000m", "memory": "2Gi"},
-        }

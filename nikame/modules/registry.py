@@ -27,6 +27,8 @@ def register_module(module_cls: type[BaseModule]) -> None:
     """
     name = module_cls.NAME
     if name in _MODULE_REGISTRY:
+        if _MODULE_REGISTRY[name] is module_cls:
+            return  # Already registered identically, ignore silently
         _log.warning(
             "Module '%s' already registered (existing: %s, new: %s). Overwriting.",
             name,

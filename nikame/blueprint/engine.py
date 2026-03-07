@@ -160,34 +160,34 @@ def _extract_active_modules(config: NikameConfig) -> dict[str, dict[str, Any]]:
 
     # Databases
     if config.databases:
-        if config.databases.postgres:
+        if config.databases.postgres is not None:
             modules["postgres"] = config.databases.postgres.model_dump()
-        if config.databases.redis:
+        if config.databases.redis is not None:
             modules["redis"] = config.databases.redis.model_dump()
-        if config.databases.mongodb:
+        if config.databases.mongodb is not None:
             modules["mongodb"] = config.databases.mongodb
-        if config.databases.clickhouse:
+        if config.databases.clickhouse is not None:
             modules["clickhouse"] = config.databases.clickhouse
-        if config.databases.qdrant:
+        if config.databases.qdrant is not None:
             modules["qdrant"] = config.databases.qdrant
-        if config.databases.timescaledb:
+        if config.databases.timescaledb is not None:
             modules["timescaledb"] = config.databases.timescaledb
-        if config.databases.elasticsearch:
+        if config.databases.elasticsearch is not None:
             modules["elasticsearch"] = config.databases.elasticsearch
-        if config.databases.neo4j:
+        if config.databases.neo4j is not None:
             modules["neo4j"] = config.databases.neo4j
 
     # Messaging
     if config.messaging:
-        if config.messaging.redpanda:
+        if config.messaging.redpanda is not None:
             modules["redpanda"] = config.messaging.redpanda.model_dump()
-        if config.messaging.kafka:
+        if config.messaging.kafka is not None:
             modules["kafka"] = config.messaging.kafka
-        if config.messaging.rabbitmq:
+        if config.messaging.rabbitmq is not None:
             modules["rabbitmq"] = config.messaging.rabbitmq
-        if config.messaging.nats:
+        if config.messaging.nats is not None:
             modules["nats"] = config.messaging.nats
-        if config.messaging.temporal:
+        if config.messaging.temporal is not None:
             modules["temporal"] = config.messaging.temporal
 
     # Cache
@@ -251,6 +251,46 @@ def _extract_active_modules(config: NikameConfig) -> dict[str, dict[str, Any]]:
     return modules
 
 
+def _apply_project_optimizations(config: NikameConfig, modules: dict[str, dict[str, Any]]) -> None:
+    """Apply architectural optimizations based on project metadata."""
+    if not config.project:
+        return
+
+    scale = config.project.scale
+    access = config.project.access_pattern
+    
+    # 1. Scale-driven optimizations
+    if scale == "medium":
+        if "postgres" in modules:
+            modules["postgres"]["replicas"] = 2
+            modules["postgres"]["max_connections"] = 500
+        if "redpanda" in modules:
+            modules["redpanda"]["brokers"] = 3
+    elif scale == "large":
+        if "postgres" in modules:
+            modules["postgres"]["replicas"] = 3
+            modules["postgres"]["max_connections"] = 1000
+        if "redpanda" in modules:
+            modules["redpanda"]["brokers"] = 3
+            # Increase partitions for all topics
+            if "topics" in modules["redpanda"]:
+                for t in modules["redpanda"]["topics"]:
+                    t["partitions"] = 12
+    
+    # 2. Access pattern optimizations
+    if access == "read_heavy":
+        if "dragonfly" in modules:
+            modules["dragonfly"]["eviction_policy"] = "allkeys-lru"
+            modules["dragonfly"]["maxmemory"] = "2gb" if scale != "small" else "512mb"
+    elif access == "write_heavy":
+        if "redpanda" in modules:
+            # Optimize for throughput
+            pass # (Future: drive specific env vars)
+            
+    # 3. Project type hints (Module additions)
+    # (Future: add specific modules based on type if missing)
+
+
 def build_blueprint(config: NikameConfig) -> Blueprint:
     """Build a resolved Blueprint from a validated NikameConfig.
 
@@ -280,6 +320,9 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
 
     # Step 2: Extract which modules the user's config activates
     active_module_configs = _extract_active_modules(config)
+    
+    # Step 2.1: Apply project optimizations
+    _apply_project_optimizations(config, active_module_configs)
     
     # Step 2.5: Resolve feature-to-module dependencies
     from nikame.codegen.registry import discover_codegen, get_codegen_class

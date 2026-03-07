@@ -1,0 +1,18 @@
+name: test-event-scenario
+version: "1.0"
+description: "Event Stack Scenario Test"
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres:
+    version: "16"
+  elasticsearch: {}
+cache:
+  provider: dragonfly
+messaging:
+  redpanda: {}
+worker:
+  provider: celery

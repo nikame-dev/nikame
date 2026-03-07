@@ -25,6 +25,11 @@ class PrometheusModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.retention: str = config.get("retention", "15d")
+
+
     def required_ports(self) -> dict[str, int]:
         """Ports for Prometheus and Alertmanager."""
         return {

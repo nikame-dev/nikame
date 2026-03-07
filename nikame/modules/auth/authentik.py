@@ -79,3 +79,10 @@ class AuthentikModule(BaseModule):
     def env_vars(self) -> dict[str, str]:
         """Expose AUTHENTIK_URL."""
         return {"AUTHENTIK_URL": "http://authentik-server:9000"}
+
+    def health_check(self) -> dict[str, Any]:
+        """Authentik health check."""
+        return {
+            "test": ["CMD", "curl", "-f", "http://localhost:9000/-/health/ready/"],
+            "interval": "30s",
+        }

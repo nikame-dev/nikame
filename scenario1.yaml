@@ -1,0 +1,21 @@
+name: test-rag-scenario
+version: "1.0"
+description: "RAG Scenario Test"
+environment:
+  target: local
+  profile: local
+storage:
+  minio: {}
+api:
+  framework: fastapi
+databases:
+  postgres:
+    version: "16"
+    pgbouncer: true
+  qdrant: {}
+mlops:
+  models:
+    - name: llm
+      source: huggingface
+      model: mistralai/Mistral-7B-v0.1
+      serve_with: vllm

@@ -249,6 +249,12 @@ def _generate_project(
         with console.status("[info]Generating application features...[/info]"):
             _generate_features(config, blueprint, writer)
 
+    # Step 13.5: Matrix Engine (Integrations Layer)
+    with console.status("[info]Executing Matrix Engine integrations...[/info]"):
+        from nikame.codegen.integrations.matrix import MatrixEngine
+        engine = MatrixEngine(config, blueprint, writer)
+        engine.execute()
+
     # Step 14: Blueprint snapshot
     writer.write_blueprint(blueprint.to_dict())
 
@@ -371,6 +377,10 @@ def _write_grafana_configs(
     blueprint: Blueprint, writer: FileWriter
 ) -> None:
     """Write Grafana provisioning and per-module dashboards."""
+    has_grafana = any(m.NAME == "grafana" for m in blueprint.modules)
+    if not has_grafana:
+        return
+
     for module in blueprint.modules:
         # Init scripts (provisioning configs)
         for filename, content in module.init_scripts():
@@ -393,10 +403,9 @@ def _write_init_scripts(
     """Write module init scripts (SQL, shell, etc.)."""
     for module in blueprint.modules:
         for filename, content in module.init_scripts():
-            if not filename.startswith("provisioning/"):
-                writer.write_file(
-                    f"infra/configs/{module.NAME}/{filename}", content
-                )
+            writer.write_file(
+                f"infra/configs/{module.NAME}/{filename}", content
+            )
 
 
 def _write_scaffolding(
@@ -709,6 +718,20 @@ def init(
         elif config:
             console.print(f"[info]Loading config:[/info] [path]{config}[/path]")
             nikame_config = load_config(config)
+            
+            if not no_interactive:
+                from nikame.cli.wizard.interactive import _show_confirmation
+                action = _show_confirmation(nikame_config.model_dump())
+                if action == "Cancel":
+                    console.print("[warning]Generation cancelled.[/warning]")
+                    raise SystemExit(0)
+                elif action == "Edit":
+                    # If they want to edit, we should probably launch the wizard with these defaults
+                    from nikame.cli.wizard.interactive import run_wizard
+                    # Note: We'd need to update run_wizard to accept defaults for better UX
+                    # For now, we'll just relaunch it
+                    config_dict = run_wizard()
+                    nikame_config = load_config_from_dict(config_dict)
         elif not no_interactive:
             # Launch wizard
             from nikame.cli.wizard import run_wizard

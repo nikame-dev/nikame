@@ -25,6 +25,12 @@ class RedisModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
+    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
+        super().__init__(config, ctx)
+        self.maxmemory: str = config.get("maxmemory", "512mb")
+        self.persistence: bool = config.get("persistence", True)
+
+
     def required_ports(self) -> dict[str, int]:
         """Standard Redis port."""
         return {"redis": 6379}

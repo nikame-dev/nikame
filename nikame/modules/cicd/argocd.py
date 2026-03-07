@@ -43,3 +43,7 @@ class ArgoCDModule(BaseModule):
     def env_vars(self) -> dict[str, str]:
         """Expose ARGOCD_URL."""
         return {"ARGOCD_URL": "http://argocd-server:80"}
+
+    def health_check(self) -> dict[str, Any]:
+        """ArgoCD health check."""
+        return {}

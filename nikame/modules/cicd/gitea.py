@@ -74,3 +74,10 @@ class GiteaModule(BaseModule):
     def env_vars(self) -> dict[str, str]:
         """Expose GITEA_URL."""
         return {"GITEA_URL": "http://gitea:3000"}
+
+    def health_check(self) -> dict[str, Any]:
+        """Gitea health check."""
+        return {
+            "test": ["CMD", "curl", "-f", "http://localhost:3000/api/healthz"],
+            "interval": "30s",
+        }

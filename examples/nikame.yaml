@@ -1,0 +1,50 @@
+project:
+  name: content-platform
+  type: content_platform
+  scale: medium
+  access_pattern: read_heavy
+
+environment:
+  target: aws
+  profile: production
+
+api:
+  framework: fastapi
+
+databases:
+  postgres:
+    version: "16"
+    pgbouncer: true
+
+cache:
+  provider: dragonfly
+
+messaging:
+  redpanda:
+    brokers: 3
+
+models:
+  User:
+    fields:
+      email: { type: str, unique: true, required: true, indexed: true }
+      name: { type: str, required: true }
+      role: { type: enum, values: [admin, editor, viewer] }
+      created_at: { type: datetime, default: now }
+  Post:
+    fields:
+      title: { type: str, required: true, indexed: true }
+      body: { type: text }
+      status: { type: enum, values: [draft, published, archived] }
+      published_at: { type: datetime, nullable: true }
+    relationships:
+      author: { model: User, type: many_to_one }
+      tags: { model: Tag, type: many_to_many }
+  Tag:
+    fields:
+      name: { type: str, unique: true, required: true }
+
+features:
+  - auth
+  - search
+  - file_upload
+  - background_jobs
