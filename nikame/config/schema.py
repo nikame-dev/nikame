@@ -378,6 +378,7 @@ class NikameConfig(BaseModel):
     mlops: MLOpsConfig | None = None
     models: dict[str, DataModelConfig] = Field(default_factory=dict)
     ci_cd: CICDConfig = Field(default_factory=CICDConfig)
+    ngrok: dict[str, Any] | None = None
     compute_optimization: ComputeOptimizationConfig = Field(
         default_factory=ComputeOptimizationConfig
     )

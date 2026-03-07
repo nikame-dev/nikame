@@ -70,6 +70,14 @@ def validate_config(config: NikameConfig) -> list[str]:
         active_modules.add("observability.prometheus")
         active_modules.add("observability.grafana")
 
+    if config.ci_cd:
+        if config.ci_cd.gitea: active_modules.add("ci_cd.gitea")
+        if config.ci_cd.woodpecker: active_modules.add("ci_cd.woodpecker")
+        if config.ci_cd.argocd: active_modules.add("ci_cd.argocd")
+
+    if config.ngrok:
+        active_modules.add("tools.ngrok")
+
     _log.debug("Active modules: %s", active_modules)
 
     # ── Conflict checks ──

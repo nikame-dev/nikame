@@ -122,7 +122,15 @@ def run_wizard() -> dict[str, Any]:
     for tool in selected_cicd:
         cicd_config[tool] = True
 
-    # 10. Features (Codegen)
+    # 10. Tools
+    selected_tools = questionary.checkbox(
+        "Select additional tools:",
+        choices=[
+            "ngrok",
+        ],
+    ).ask()
+
+    # 11. Features (Codegen)
     selected_features = questionary.checkbox(
         "Select application features:",
         choices=[
@@ -179,6 +187,9 @@ def run_wizard() -> dict[str, Any]:
         config_dict["observability"] = observability_config
     if cicd_config:
         config_dict["ci_cd"] = cicd_config
+    if selected_tools:
+        for tool in selected_tools:
+            config_dict[tool] = {}
     if selected_features:
         config_dict["features"] = [f.lower().replace(" ", "_") for f in selected_features]
 

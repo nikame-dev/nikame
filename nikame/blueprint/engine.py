@@ -230,6 +230,10 @@ def _extract_active_modules(config: NikameConfig) -> dict[str, dict[str, Any]]:
         if config.ci_cd.argocd:
             modules["argocd"] = {}
 
+    # Tools
+    if config.ngrok is not None:
+        modules["ngrok"] = config.ngrok
+
     # MLOps models
     if config.mlops and config.mlops.models:
         hw = HardwareDetector.detect()
