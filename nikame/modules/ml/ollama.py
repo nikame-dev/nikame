@@ -13,6 +13,10 @@ class OllamaModule(BaseModule):
     DESCRIPTION = "Local LLM runner with simple API"
     DEFAULT_VERSION = "latest"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Ollama API port."""
+        return {"ollama": 11434}
+
     def compose_spec(self) -> dict[str, Any]:
         return {
             f"ollama-{self.ctx.project_name}": {
@@ -33,7 +37,7 @@ class OllamaModule(BaseModule):
                         }
                     }
                 } if self.config.get("gpu", "optional") != "none" else {},
-                "ports": ["11434:11434"],
+                "ports": [f"{self.ctx.host_port_map.get('ollama', 11434)}:11434"] if self.ctx.environment == "local" else [],
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],
             }

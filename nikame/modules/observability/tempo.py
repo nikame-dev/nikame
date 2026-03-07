@@ -15,6 +15,10 @@ class TempoModule(BaseModule):
     DESCRIPTION = "Grafana Tempo high-scale distributed tracing backend"
     DEFAULT_VERSION = "2.3.0"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Tempo port."""
+        return {"tempo": 3200}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Tempo."""
         return {

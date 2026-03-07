@@ -15,13 +15,17 @@ class TimescaleDBModule(BaseModule):
     DESCRIPTION = "TimescaleDB time-series database based on PostgreSQL"
     DEFAULT_VERSION = "latest-pg16"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard TimescaleDB port (Postgres-compatible)."""
+        return {"timescaledb": 5433}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for TimescaleDB."""
         return {
             "timescaledb": {
                 "image": f"timescale/timescaledb:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["5433:5432"],
+                "ports": [f"{self.ctx.host_port_map.get('timescaledb', 5433)}:5432"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "POSTGRES_PASSWORD": "${TIMESCALEDB_PASSWORD}",
                 },

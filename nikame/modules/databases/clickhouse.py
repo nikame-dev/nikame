@@ -15,6 +15,13 @@ class ClickHouseModule(BaseModule):
     DESCRIPTION = "ClickHouse fast open-source OLAP database management system"
     DEFAULT_VERSION = "24.1"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for ClickHouse HTTP and Native."""
+        return {
+            "clickhouse": 8123,
+            "clickhouse-native": 9000,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for ClickHouse."""
         return {

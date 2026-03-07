@@ -38,6 +38,10 @@ class FastAPIModule(BaseModule):
         self.cors_origins: list[str] = config.get("cors_origins", ["*"])
         self.port: int = config.get("port", 8000)
 
+    def required_ports(self) -> dict[str, int]:
+        """Requested API port."""
+        return {"fastapi": self.port}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for FastAPI."""
         return {

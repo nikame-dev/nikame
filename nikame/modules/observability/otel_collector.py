@@ -15,13 +15,29 @@ class OTELCollectorModule(BaseModule):
     DESCRIPTION = "OpenTelemetry Collector for vendor-agnostic telemetry ingestion"
     DEFAULT_VERSION = "0.96.0"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for OTEL Collector."""
+        return {
+            "otel-collector": 4317,
+            "otel-collector-http": 4318,
+            "otel-collector-metrics": 8888,
+            "otel-collector-prom": 8889,
+            "otel-collector-health": 13133,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for OTEL Collector."""
         return {
             "otel-collector": {
                 "image": f"otel/opentelemetry-collector-contrib:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["4317:4317", "4318:4318", "8888:8888", "8889:8889", "13133:13133"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('otel-collector', 4317)}:4317",
+                    f"{self.ctx.host_port_map.get('otel-collector-http', 4318)}:4318",
+                    f"{self.ctx.host_port_map.get('otel-collector-metrics', 8888)}:8888",
+                    f"{self.ctx.host_port_map.get('otel-collector-prom', 8889)}:8889",
+                    f"{self.ctx.host_port_map.get('otel-collector-health', 13133)}:13133",
+                ] if self.ctx.environment == "local" else [],
                 "command": ["--config=/etc/otel-collector-config.yaml"],
                 "volumes": [
                     "./configs/otel_collector/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro"

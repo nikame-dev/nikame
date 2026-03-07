@@ -132,13 +132,16 @@ class BaseModule(ABC):
         """
         return []
 
-    def prometheus_scrape_targets(self) -> list[dict[str, Any]]:
-        """Return Prometheus scrape configurations for this module.
+    def required_ports(self) -> dict[str, int]:
+        """Return a dictionary of local service names and their default host ports.
+        
+        This is used by the blueprint engine to resolve port conflicts
+        in local environments.
         
         Returns:
-            List of dicts following the Prometheus scrape_config schema.
+            Dict of {service_name: default_port}.
         """
-        return []
+        return {}
 
     def scaffold_files(self) -> list[tuple[str, str]]:
         """Return application scaffold files for this module.

@@ -15,13 +15,23 @@ class RabbitMQModule(BaseModule):
     DESCRIPTION = "RabbitMQ multi-protocol messaging broker"
     DEFAULT_VERSION = "3.12-management"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for RabbitMQ and Management UI."""
+        return {
+            "rabbitmq": 5672,
+            "rabbitmq-mgmt": 15672,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for RabbitMQ."""
         return {
             "rabbitmq": {
                 "image": f"rabbitmq:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["5672:5672", "15672:15672"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('rabbitmq', 5672)}:5672",
+                    f"{self.ctx.host_port_map.get('rabbitmq-mgmt', 15672)}:15672"
+                ] if self.ctx.environment == "local" else [],
                 "environment": {
                     "RABBITMQ_DEFAULT_USER": "guest",
                     "RABBITMQ_DEFAULT_PASS": "guest",

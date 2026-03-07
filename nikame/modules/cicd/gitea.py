@@ -16,13 +16,23 @@ class GiteaModule(BaseModule):
     DEFAULT_VERSION = "1.21"
     DEPENDENCIES: list[str] = ["postgres"]
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Gitea HTTP and SSH."""
+        return {
+            "gitea": 3000,
+            "gitea-ssh": 2222,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Gitea."""
         return {
             "gitea": {
                 "image": f"gitea/gitea:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["3000:3000", "2222:22"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('gitea', 3000)}:3000",
+                    f"{self.ctx.host_port_map.get('gitea-ssh', 2222)}:22"
+                ] if self.ctx.environment == "local" else [],
                 "environment": {
                     "GITEA__database__DB_TYPE": "postgres",
                     "GITEA__database__HOST": "postgres:5432",

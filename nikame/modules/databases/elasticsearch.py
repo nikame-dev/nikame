@@ -15,13 +15,17 @@ class ElasticsearchModule(BaseModule):
     DESCRIPTION = "Elasticsearch distributed, RESTful search and analytics engine"
     DEFAULT_VERSION = "8.12.0"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Elasticsearch port."""
+        return {"elasticsearch": 9200}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Elasticsearch."""
         return {
             "elasticsearch": {
                 "image": f"docker.elastic.co/elasticsearch/elasticsearch:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["9200:9200"],
+                "ports": [f"{self.ctx.host_port_map.get('elasticsearch', 9200)}:9200"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "discovery.type": "single-node",
                     "xpack.security.enabled": "false",

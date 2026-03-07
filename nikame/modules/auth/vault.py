@@ -15,13 +15,17 @@ class VaultModule(BaseModule):
     DESCRIPTION = "Vault for secret management and encryption-as-a-service"
     DEFAULT_VERSION = "1.15"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for HashiCorp Vault API."""
+        return {"vault": 8200}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Vault."""
         return {
             "vault": {
                 "image": f"hashicorp/vault:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["8200:8200"],
+                "ports": [f"{self.ctx.host_port_map.get('vault', 8200)}:8200"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "VAULT_DEV_ROOT_TOKEN_ID": "root",
                     "VAULT_DEV_LISTEN_ADDRESS": "0.0.0.0:8200",

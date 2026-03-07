@@ -17,11 +17,23 @@ class NgrokModule(BaseModule):
     CATEGORY = "tools"
     DEFAULT_PORT = 4040 # Ngrok agent API
 
-    def get_service_config(self) -> dict[str, Any]:
+    def required_ports(self) -> dict[str, int]:
+        """Ngrok agent API port."""
+        return {"ngrok": self.DEFAULT_PORT}
+
+    def compose_spec(self) -> dict[str, Any]:
         """Ngrok does not need a docker-compose service if run via pyngrok in FastAPI."""
         return {}
 
-    def get_env_vars(self) -> dict[str, str]:
+    def k8s_manifests(self) -> list[dict[str, Any]]:
+        """Ngrok is local-only."""
+        return []
+
+    def health_check(self) -> dict[str, Any]:
+        """Default healthy."""
+        return {}
+
+    def env_vars(self) -> dict[str, str]:
         return {
             "NGROK_AUTHTOKEN": "",
         }

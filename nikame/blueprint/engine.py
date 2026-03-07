@@ -359,43 +359,29 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
     # Step 6: Identify and resolve port conflicts for local dev
     host_port_map: dict[str, int] = {}
     if config.environment.target == "local":
-        # Registry of default ports for common services
-        DEFAULT_PORTS = {
-            "postgres": 5432,
-            "redis": 6379,
-            "dragonfly": 6379,
-            "valkey": 6379,
-            "mongodb": 27017,
-            "clickhouse": 8123,
-            "clickhouse-native": 9000,
-            "qdrant": 6333,
-            "qdrant-grpc": 6334,
-            "neo4j": 7474,
-            "neo4j-bolt": 7687,
-            "kafka": 9092,
-            "redpanda": 19092,
-            "redpanda-console": 8080,
-            "traefik": 80,
-            "traefik-dashboard": 8090,
-            "grafana": 3000,
-            "prometheus": 9090,
-            "alertmanager": 9093,
-            "tempo": 3200,
-            "loki": 3100,
-            "minio": 9000,
-            "minio-console": 9001,
-            "fastapi": 8000,
-        }
+        # 1. Instantiate temporary modules to collect port requirements
+        # We need a temporary context for this
+        temp_ctx = ModuleContext(
+            project_name=config.name,
+            environment="local",
+        )
         
-        used_ports: set[int] = set()
+        all_required_ports: dict[str, int] = {}
         for mod_name in sorted_names:
-            base_port = DEFAULT_PORTS.get(mod_name)
-            if base_port:
-                final_port = base_port
-                while final_port in used_ports:
-                    final_port += 1
-                host_port_map[mod_name] = final_port
-                used_ports.add(final_port)
+            mod_cls = get_module_class(mod_name)
+            if mod_cls:
+                instance = mod_cls({}, temp_ctx)
+                all_required_ports.update(instance.required_ports())
+
+        # 2. Resolve conflicts
+        used_ports: set[int] = set()
+        # Sort by service name for deterministic allocation
+        for svc_name, base_port in sorted(all_required_ports.items()):
+            final_port = base_port
+            while final_port in used_ports:
+                final_port += 1
+            host_port_map[svc_name] = final_port
+            used_ports.add(final_port)
 
     # Step 7: Create module context
     ctx = ModuleContext(

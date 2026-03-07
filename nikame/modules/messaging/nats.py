@@ -15,13 +15,23 @@ class NATSModule(BaseModule):
     DESCRIPTION = "NATS cloud native messaging system"
     DEFAULT_VERSION = "2.10"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for NATS messaging and monitoring."""
+        return {
+            "nats": 4222,
+            "nats-monitor": 8222,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for NATS."""
         return {
             "nats": {
                 "image": f"nats:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["4222:4222", "8222:8222"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('nats', 4222)}:4222",
+                    f"{self.ctx.host_port_map.get('nats-monitor', 8222)}:8222"
+                ] if self.ctx.environment == "local" else [],
                 "command": "-js",
                 "networks": [f"{self.ctx.project_name}_network"],
                 "healthcheck": self.health_check(),

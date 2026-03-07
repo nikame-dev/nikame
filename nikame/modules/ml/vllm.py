@@ -13,6 +13,10 @@ class VLLMModule(BaseModule):
     DESCRIPTION = "High-efficiency LLM serving with PagedAttention"
     DEFAULT_VERSION = "latest"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard vLLM API port."""
+        return {"vllm": 8000}
+
     def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
         super().__init__(config, ctx)
         self.model = config.get("model")
@@ -41,7 +45,7 @@ class VLLMModule(BaseModule):
                         }
                     }
                 },
-                "ports": ["8000:8000"],
+                "ports": [f"{self.ctx.host_port_map.get('vllm', 8000)}:8000"] if self.ctx.environment == "local" else [],
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],
             }

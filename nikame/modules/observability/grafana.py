@@ -29,6 +29,10 @@ class GrafanaModule(BaseModule):
         super().__init__(config, ctx)
         self.admin_password: str = "${GRAFANA_ADMIN_PASSWORD}"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Grafana port."""
+        return {"grafana": 3000}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Grafana."""
         return {
@@ -41,7 +45,7 @@ class GrafanaModule(BaseModule):
                     "GF_USERS_ALLOW_SIGN_UP": "false",
                     "GF_SERVER_ROOT_URL": f"http://{self.ctx.domain or 'localhost'}:3000",
                 },
-                "ports": ["3000:3000"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('grafana', 3000)}:3000"] if self.ctx.environment == "local" else [],
                 "volumes": [
                     "grafana_data:/var/lib/grafana",
                     "./configs/grafana/provisioning/:/etc/grafana/provisioning/:ro",

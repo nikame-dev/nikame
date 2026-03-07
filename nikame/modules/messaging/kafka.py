@@ -18,6 +18,10 @@ class KafkaModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = ["redpanda"]
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Kafka port."""
+        return {"kafka": 9092}
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Kafka (KRaft)."""
         return {

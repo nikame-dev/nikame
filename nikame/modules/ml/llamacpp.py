@@ -13,6 +13,10 @@ class LlamaCppModule(BaseModule):
     DESCRIPTION = "Lightweight GGUF inference engine"
     DEFAULT_VERSION = "latest"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Llama.cpp server port."""
+        return {"llamacpp": 8080}
+
     def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
         super().__init__(config, ctx)
         self.model_path = config.get("model_path")
@@ -29,7 +33,7 @@ class LlamaCppModule(BaseModule):
                 "volumes": [
                     "./models:/models",
                 ],
-                "ports": ["8080:8080"],
+                "ports": [f"{self.ctx.host_port_map.get('llamacpp', 8080)}:8080"] if self.ctx.environment == "local" else [],
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],
             }

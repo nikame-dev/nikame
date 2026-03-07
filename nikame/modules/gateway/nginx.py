@@ -15,13 +15,23 @@ class NginxModule(BaseModule):
     DESCRIPTION = "Nginx high-performance HTTP server and reverse proxy"
     DEFAULT_VERSION = "1.25"
 
+    def required_ports(self) -> dict[str, int]:
+        """Standard Nginx HTTP and HTTPS ports."""
+        return {
+            "nginx": 80,
+            "nginx-https": 443,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Nginx."""
         return {
             "nginx": {
                 "image": f"nginx:{self.version}-alpine",
                 "restart": "unless-stopped",
-                "ports": ["80:80", "443:443"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('nginx', 80)}:80",
+                    f"{self.ctx.host_port_map.get('nginx-https', 443)}:443"
+                ] if self.ctx.environment == "local" else [],
                 "volumes": [
                     "configs/nginx/nginx.conf:/etc/nginx/nginx.conf:ro",
                 ],

@@ -27,12 +27,14 @@ class RedPandaModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS = ["kafka"]
 
-    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
-        super().__init__(config, ctx)
-        self.brokers: int = config.get("brokers", 1)
-        self.topics: list[dict[str, Any]] = config.get("topics", [])
-        self.schema_registry: bool = config.get("schema_registry", True)
-        self.kafka_ui: bool = config.get("kafka_ui", True)
+    def required_ports(self) -> dict[str, int]:
+        """Ports for RedPanda and its Console."""
+        return {
+            "redpanda": 19092,
+            "redpanda-registry": 18081,
+            "redpanda-admin": 9644,
+            "redpanda-console": 8080,
+        }
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose services for RedPanda + Console."""

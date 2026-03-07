@@ -16,13 +16,24 @@ class TemporalModule(BaseModule):
     DEFAULT_VERSION = "1.23"
     DEPENDENCIES: list[str] = ["postgres"]  # Needs a database
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Temporal Server and Web UI."""
+        return {
+            "temporal": 7233,
+            "temporal-admin": 8080,
+            "temporal-ui": 8082,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Temporal."""
         return {
             "temporal": {
                 "image": f"temporalio/auto-setup:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["7233:7233", "8080:8080"],
+                "ports": [
+                    f"{self.ctx.host_port_map.get('temporal', 7233)}:7233",
+                    f"{self.ctx.host_port_map.get('temporal-admin', 8080)}:8080"
+                ] if self.ctx.environment == "local" else [],
                 "environment": {
                     "DB": "postgresql",
                     "DB_PORT": "5432",
@@ -37,7 +48,7 @@ class TemporalModule(BaseModule):
             "temporal-ui": {
                 "image": "temporalio/ui:1.23.0",
                 "restart": "unless-stopped",
-                "ports": ["8082:8080"],
+                "ports": [f"{self.ctx.host_port_map.get('temporal-ui', 8082)}:8080"] if self.ctx.environment == "local" else [],
                 "environment": {
                     "TEMPORAL_ADDRESS": "temporal:7233",
                 },

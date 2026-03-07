@@ -7,6 +7,7 @@ customized GUIDE.md for the generated project.
 from __future__ import annotations
 
 import os
+import time
 from typing import TYPE_CHECKING, Any
 
 from jinja2 import Environment, FileSystemLoader
@@ -27,12 +28,13 @@ class GuideGenerator:
     def generate(self) -> str:
         """Render the GUIDE.md content."""
         metadata = self._collect_metadata()
-        template = self.env.get_all_templates(extensions=["j2"]) or ["GUIDE.md.j2"]
-        # Fallback if no templates found in dir (should not happen in prod)
+        metadata["now"] = time.strftime("%Y-%m-%d %H:%M:%S")
         try:
             tmpl = self.env.get_template("GUIDE.md.j2")
             return tmpl.render(**metadata)
-        except Exception:
+        except Exception as e:
+            from nikame.utils.logger import console
+            console.print(f"[warning]⚠ Template error in GUIDE.md: {e}[/warning]")
             return f"# {self.blueprint.project_name}\n\nProject generated with NIKAME."
 
     def _collect_metadata(self) -> dict[str, Any]:

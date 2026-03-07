@@ -24,6 +24,10 @@ class KeycloakModule(BaseModule):
     DEPENDENCIES = ["postgres"]
     CONFLICTS: list[str] = []
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Keycloak HTTP."""
+        return {"keycloak": 8180}
+
     def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
         super().__init__(config, ctx)
         realms_data = config.get("keycloak", {}).get("realms", [{"name": "main"}])
@@ -48,7 +52,7 @@ class KeycloakModule(BaseModule):
                     "KC_HOSTNAME_STRICT": "false",
                     "KC_PROXY": "edge",
                 },
-                "ports": ["8180:8080"] if self.ctx.environment == "local" else [],
+                "ports": [f"{self.ctx.host_port_map.get('keycloak', 8180)}:8080"] if self.ctx.environment == "local" else [],
                 "depends_on": {"postgres": {"condition": "service_healthy"}},
                 "healthcheck": self.health_check(),
                 "networks": [f"{self.ctx.project_name}_network"],

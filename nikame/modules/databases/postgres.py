@@ -25,13 +25,9 @@ class PostgresModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
-    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
-        super().__init__(config, ctx)
-        self.replicas: int = config.get("replicas", 1)
-        self.pgbouncer: bool = config.get("pgbouncer", True)
-        self.extensions: list[str] = config.get("extensions", [])
-        self.max_connections: int = config.get("max_connections", 200)
-        self.storage: str = config.get("storage", "10Gi")
+    def required_ports(self) -> dict[str, int]:
+        """Standard PostgreSQL port."""
+        return {"postgres": 5432}
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose services for PostgreSQL + pgBouncer."""

@@ -15,6 +15,13 @@ class Neo4jModule(BaseModule):
     DESCRIPTION = "Neo4j graph database management system"
     DEFAULT_VERSION = "5.18.0"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Neo4j HTTP and Bolt."""
+        return {
+            "neo4j": 7474,
+            "neo4j-bolt": 7687,
+        }
+
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Neo4j."""
         return {

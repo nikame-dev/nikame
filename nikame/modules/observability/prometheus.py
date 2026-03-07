@@ -25,10 +25,12 @@ class PrometheusModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
-    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
-        super().__init__(config, ctx)
-        self.retention: str = config.get("retention", "15d")
-        self.alerting_config: dict[str, Any] = config.get("alerting", {})
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Prometheus and Alertmanager."""
+        return {
+            "prometheus": 9090,
+            "alertmanager": 9093,
+        }
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose services for Prometheus + Alertmanager."""

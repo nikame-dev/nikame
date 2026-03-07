@@ -15,13 +15,17 @@ class ArgoCDModule(BaseModule):
     DESCRIPTION = "ArgoCD declarative, GitOps continuous delivery tool for Kubernetes"
     DEFAULT_VERSION = "v2.10.1"
 
+    def required_ports(self) -> dict[str, int]:
+        """Ports for ArgoCD Server."""
+        return {"argocd": 8083}
+
     def compose_spec(self) -> dict[str, Any]:
         """ArgoCD usually runs in K8s, but we provide a basic compose for dev."""
         return {
             "argocd": {
                 "image": f"quay.io/argoproj/argocd:{self.version}",
                 "restart": "unless-stopped",
-                "ports": ["8083:8080"],
+                "ports": [f"{self.ctx.host_port_map.get('argocd', 8083)}:8080"] if self.ctx.environment == "local" else [],
                 "networks": [f"{self.ctx.project_name}_network"],
             }
         }

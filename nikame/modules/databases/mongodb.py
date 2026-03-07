@@ -17,10 +17,9 @@ class MongoDBModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
-    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
-        super().__init__(config, ctx)
-        self.root_user: str = config.get("root_user", "admin")
-        self.replicas: int = config.get("replicas", 1)
+    def required_ports(self) -> dict[str, int]:
+        """Standard MongoDB port."""
+        return {"mongodb": 27017}
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for MongoDB."""

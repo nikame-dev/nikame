@@ -25,12 +25,12 @@ class TraefikModule(BaseModule):
     DEPENDENCIES: list[str] = []
     CONFLICTS: list[str] = []
 
-    def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
-        super().__init__(config, ctx)
-        tls_config = config.get("tls", {})
-        self.tls_enabled: bool = tls_config.get("enabled", True)
-        self.tls_provider: str = tls_config.get("provider", "letsencrypt")
-        self.tls_email: str = tls_config.get("email", "")
+    def required_ports(self) -> dict[str, int]:
+        """Ports for Traefik and its Dashboard."""
+        return {
+            "traefik": 80,
+            "traefik-dashboard": 8090,
+        }
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Traefik."""
