@@ -52,4 +52,7 @@ verify_codegen.py
 verify_matrix.py
 verify_prod.yaml
 verify_wizard_output.py
+scenario1.yaml
+scenario2.yaml
+scenario3.yaml
 
