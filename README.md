@@ -40,6 +40,7 @@ Run `nikame preflight` to validate your local environment and project configurat
 | Command | Category | Description |
 |:---|:---|:---|
 | `nikame init` | Setup | Initialize a new project via Interactive Wizard or YAML config. |
+| `nikame templates` | Registry | Discover, download, and publish project templates (`search`, `use`, `publish`). |
 | `nikame up` | Ops | Start all local services via Docker Compose. |
 | `nikame status` | Ops | Show real-time health and endpoints for all running services. |
 | `nikame logs` | Ops | Stream and **pretty-print** JSON logs from your containers. |
@@ -53,6 +54,8 @@ Run `nikame preflight` to validate your local environment and project configurat
 | `nikame tunnel` | Dev | Expose your local API to a public URL via Ngrok. |
 | `nikame verify` | Quality | Verify that the generated code is importable and valid. |
 | `nikame destroy` | Cleanup | Tear down all infrastructure and volumes. |
+| `nikame templates search` | Registry | Search for community templates in the global registry. |
+| `nikame templates use <id>` | Registry | Clone a template and launch the setup wizard immediately. |
 
 ---
 
