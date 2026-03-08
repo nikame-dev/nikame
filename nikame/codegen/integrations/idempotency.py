@@ -18,7 +18,14 @@ if TYPE_CHECKING:
 class EventIdempotencyIntegration(BaseIntegration):
     """Generates Exactly-Once processing decorators using Dragonfly."""
 
-    REQUIRED_MODULES = ["dragonfly", "redpanda"]
+    REQUIRED_MODULES = ["dragonfly"]
+
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Trigger if dragonfly AND a Kafka-compatible broker are active."""
+        has_dragonfly = "dragonfly" in active_modules
+        has_broker = "redpanda" in active_modules or "kafka" in active_modules
+        return has_dragonfly and has_broker
 
     def generate_core(self) -> list[tuple[str, str]]:
         files = []

@@ -23,8 +23,8 @@ class AsyncInferenceIntegration(BaseIntegration):
 
     @classmethod
     def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
-        """Trigger if RedPanda is active alongside a serving gateway."""
-        has_kafka = "redpanda" in active_modules
+        """Trigger if a Kafka-compatible broker is active alongside a serving gateway."""
+        has_kafka = "redpanda" in active_modules or "kafka" in active_modules
         has_serving = any(m in active_modules for m in ["llamacpp", "ollama", "vllm", "tgi", "triton", "localai", "xinference", "airllm", "bentoml", "whisper", "tts"])
         return has_kafka and has_serving
 
@@ -75,8 +75,8 @@ Large requests to `{self.served_model}` can be slow. Since RedPanda is active, a
         return f"""import json
 import logging
 from aiokafka import AIOKafkaConsumer, AIOKafkaProducer
-from app.core.config import settings
-from app.services.llm_gateway import LLMGateway
+from core.config import settings
+from services.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
 

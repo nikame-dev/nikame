@@ -19,7 +19,14 @@ if TYPE_CHECKING:
 class AuthEventBusIntegration(BaseIntegration):
     """Generates the centralized auth event propagation bus."""
 
-    REQUIRED_MODULES = ["redpanda"]
+    REQUIRED_MODULES = []
+
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Trigger if a Kafka-compatible broker AND auth feature are active."""
+        has_broker = "redpanda" in active_modules or "kafka" in active_modules
+        has_auth = "auth" in active_features
+        return has_broker and has_auth
     REQUIRED_FEATURES = ["auth"]
 
     def generate_core(self) -> list[tuple[str, str]]:

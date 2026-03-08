@@ -93,6 +93,16 @@ def load_config(
 
     _log.debug("Loaded raw config with keys: %s", list(raw_data.keys()))
 
+    # Flatten 'modules' group if present
+    if "modules" in raw_data:
+        modules_data = raw_data.pop("modules")
+        if isinstance(modules_data, dict):
+            for k, v in modules_data.items():
+                if k not in raw_data or raw_data[k] is None:
+                    raw_data[k] = v
+        else:
+            raise NikameValidationError("'modules' must be a dictionary")
+
     try:
         config = NikameConfig.model_validate(raw_data)
     except Exception as exc:

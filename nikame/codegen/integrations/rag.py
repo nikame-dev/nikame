@@ -132,10 +132,10 @@ from typing import List, Dict, Any
 import logging
 from fastapi import UploadFile
 
-from app.core.config import settings
-from app.services.storage import StorageService
-from app.services.vector_db import {vdb_service}
-from app.services.llm_gateway import LLMGateway
+from core.config import settings
+from services.storage import StorageService
+from services.vector_db import {vdb_service}
+from services.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
 
@@ -175,8 +175,8 @@ async def process_document(file: UploadFile, metadata: Dict[str, Any] = None) ->
         if self.use_postgres:
             template += f"""
     # 5. Sync metadata to Postgres
-    from app.models.document_meta import DocumentMeta
-    from app.db.session import async_session
+    from models.document_meta import DocumentMeta
+    from db.session import async_session
     
     async with async_session() as db:
         new_doc = DocumentMeta(id=doc_id, filename=file.filename, chunk_count=len(chunks))
@@ -208,7 +208,7 @@ async def query_rag(question: str, top_k: int = 3) -> str:
     def _generate_rag_router_py(self) -> str:
         return """from fastapi import APIRouter, UploadFile, File, Form, Depends
 from typing import Dict, Any
-from app.core.integrations.rag_pipeline import process_document, query_rag
+from core.integrations.rag_pipeline import process_document, query_rag
 
 router = APIRouter()
 

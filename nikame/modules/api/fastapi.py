@@ -823,7 +823,7 @@ kafka_service = MessagingService(settings.KAFKA_BOOTSTRAP_SERVERS)
 
         # 6. Core Drivers
         if has_storage:
-            storage_py = """\\"\\"\\"MinIO/S3 storage client wrapper.\\"\\"\\"
+            storage_py = f'''"""MinIO/S3 storage client wrapper."""
 import aioboto3
 from config import settings
 import logging
@@ -833,11 +833,11 @@ logger = logging.getLogger(__name__)
 class StorageClient:
     def __init__(self):
         self.session = aioboto3.Session()
-        self.config = {
-            "endpoint_url": f"http://{settings.MINIO_ENDPOINT}",
+        self.config = {{
+            "endpoint_url": f"http://{{settings.MINIO_ENDPOINT}}",
             "aws_access_key_id": settings.MINIO_ACCESS_KEY,
             "aws_secret_access_key": settings.MINIO_SECRET_KEY,
-        }
+        }}
 
     async def get_client(self):
         return self.session.client("s3", **self.config)
@@ -848,32 +848,32 @@ class StorageClient:
 
     async def generate_presigned_url(self, bucket: str, object_name: str, exp: int = 3600):
         async with await self.get_client() as s3:
-            return await s3.generate_presigned_url('get_object', Params={'Bucket': bucket, 'Key': object_name}, ExpiresIn=exp)
+            return await s3.generate_presigned_url('get_object', Params={{'Bucket': bucket, 'Key': object_name}}, ExpiresIn=exp)
 
 storage_client = StorageClient()
-"""
+'''
             files.append(("app/core/storage.py", storage_py))
 
         if has_search:
-            search_py = """\\"\\"\\"Elasticsearch async client wrapper.\\"\\"\\"
+            search_py = f'''"""Elasticsearch async client wrapper."""
 from elasticsearch import AsyncElasticsearch
 from config import settings
 
 search_client = AsyncElasticsearch(settings.ELASTICSEARCH_URL)
-"""
+'''
             files.append(("app/core/search.py", search_py))
 
         if has_neo4j:
-            neo4j_py = """\\"\\"\\"Neo4j async driver wrapper.\\"\\"\\"
+            neo4j_py = f'''"""Neo4j async driver wrapper."""
 from neo4j import AsyncGraphDatabase
 from config import settings
 
 neo4j_driver = AsyncGraphDatabase.driver(settings.NEO4J_URI, auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD))
-"""
+'''
             files.append(("app/core/neo4j.py", neo4j_py))
 
         if has_clickhouse:
-            clickhouse_py = """\\"\\"\\"ClickHouse async client.\\"\\"\\"
+            clickhouse_py = f'''"""ClickHouse async client."""
 import aiochclient
 import aiohttp
 from config import settings
@@ -884,20 +884,20 @@ class ClickHouseClient:
         return aiochclient.ChClient(session, url=settings.CLICKHOUSE_URL)
 
 clickhouse_client = ClickHouseClient()
-"""
+'''
             files.append(("app/core/clickhouse.py", clickhouse_py))
 
         if has_vector:
-            vector_py = """\\"\\"\\"Qdrant vector search client.\\"\\"\\"
+            vector_py = f'''"""Qdrant vector search client."""
 from qdrant_client import AsyncQdrantClient
 from config import settings
 
 vector_client = AsyncQdrantClient(url=settings.QDRANT_URL)
-"""
+'''
             files.append(("app/core/vector.py", vector_py))
 
         if has_temporal:
-            temporal_py = """\\"\\"\\"Temporal workflow client.\\"\\"\\"
+            temporal_py = f'''"""Temporal workflow client."""
 from temporalio.client import Client
 from config import settings
 
@@ -906,7 +906,7 @@ class TemporalClient:
         return await Client.connect(settings.TEMPORAL_TARGET)
 
 temporal_client = TemporalClient()
-"""
+'''
             files.append(("app/core/temporal.py", temporal_py))
 
         if has_smtp:
@@ -1006,7 +1006,7 @@ async def readiness():
 Feature flag wrapper using Unleash.
 """
 from UnleashClient import UnleashClient
-from config import settings
+from core.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1039,7 +1039,7 @@ MLflow experiment tracking client.
 """
 import mlflow
 import os
-from config import settings
+from core.config import settings
 
 def init_tracking():
     """Initialize MLflow tracking URI and default experiment."""
@@ -1061,7 +1061,7 @@ ML Observability and Tracing configuration.
 """
 import os
 import logging
-from config import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -1132,7 +1132,7 @@ def init_gptcache():
 Agent Framework Configuration.
 """
 import logging
-from config import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -1152,7 +1152,7 @@ def get_agent_executor():
 Distributed rate limiting using FastAPI-Limiter and Redis.
 """
 from fastapi_limiter import FastAPILimiter
-from config import settings
+from core.config import settings
 from core.cache import cache
 
 async def init_limiter(app):
@@ -1195,7 +1195,7 @@ async def seed_data():
         #     user = User(
         #         email=fake.unique.email(),
         #         username=fake.unique.user_name(),
-        #         hashed_password="hashed_password", # Replace with real hash
+        #         password_hash="argon2_placeholder_hash", # Replace with real hash
         #         is_active=True
         #     )
         #     session.add(user)
@@ -1245,6 +1245,7 @@ dependencies = [
     "pydantic-settings>=2.1.0,<3.0.0",
     "httpx>=0.26.0,<1.0.0",
     "python-logging-loki>=0.3.1",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.optional-dependencies]

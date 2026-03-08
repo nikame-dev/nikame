@@ -21,6 +21,7 @@ class MLflowModule(BaseModule):
     DESCRIPTION = "MLflow experiment tracking and model registry"
     DEFAULT_VERSION = "2.10.2"
     DEFAULT_PORT = 5000
+    DEPENDENCIES = ["postgres", "minio"]
 
     def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
         super().__init__(config, ctx)

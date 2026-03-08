@@ -1,7 +1,6 @@
 """nikame up — Start infrastructure services locally."""
 
-from __future__ import annotations
-
+import shutil
 import subprocess
 from pathlib import Path
 import time
@@ -10,6 +9,17 @@ import click
 
 from nikame.utils.logger import console
 from nikame.blueprint.engine import build_blueprint
+from nikame.config.schema import NikameConfig
+
+
+def _ensure_binary(name: str, install_hint: str) -> None:
+    """Check if a binary exists in PATH, else raise helpful error."""
+    if not shutil.which(name):
+        console.print(f"\n[error]✗ Required tool [bold]'{name}'[/bold] not found in PATH.[/error]")
+        console.print(f"[tip]💡 Install Hint:[/tip] {install_hint}")
+        console.print("\n[cyan]Alternatives:[/cyan]")
+        console.print("If you don't have Kubernetes installed, change [bold]target: local[/bold] in [bold]nikame.yaml[/bold] to use Docker Compose.")
+        raise SystemExit(1)
 
 
 @click.command()
@@ -63,6 +73,7 @@ def up(
         console.print(f"[error]✗ Target '{target}' not yet supported for 'up'[/error]")
 
 def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...], build: bool, detach: bool) -> None:
+    _ensure_binary("docker", "Visit https://docs.docker.com/get-docker/")
     compose_file = project_dir / "infra" / "docker-compose.yml"
     if not compose_file.exists():
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
@@ -345,9 +356,11 @@ def _up_k8s(project_dir: Path) -> None:
 
     if helm_dir.exists():
         console.print("[success]🚀 Deploying via Helm...[/success]\n")
+        _ensure_binary("helm", "Visit https://helm.sh/docs/intro/install/")
         subprocess.run(["helm", "upgrade", "--install", "app", "."], check=True, cwd=str(helm_dir))
     elif k8s_dir.exists():
         console.print("[success]🚀 Deploying via Kubectl...[/success]\n")
+        _ensure_binary("kubectl", "Visit https://kubernetes.io/docs/tasks/tools/")
         subprocess.run(["kubectl", "apply", "-f", "."], check=True, cwd=str(k8s_dir))
     else:
         console.print("[error]✗ No K8s or Helm files found.[/error]")
@@ -359,5 +372,6 @@ def _up_cloud(project_dir: Path, target: str) -> None:
         raise SystemExit(1)
 
     console.print(f"[success]🚀 Provisioning Cloud Infrastructure ({target})...[/success]\n")
+    _ensure_binary("terraform", "Visit https://developer.hashicorp.com/terraform/downloads")
     subprocess.run(["terraform", "init"], check=True, cwd=str(tf_dir))
     subprocess.run(["terraform", "apply", "-auto-approve"], check=True, cwd=str(tf_dir))

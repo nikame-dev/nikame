@@ -14,10 +14,7 @@ from nikame.utils.logger import console
 
 # ──────────────────────────── Constants & Types ────────────────────────────
 
-PROJECT_TYPES = [
-    "saas", "marketplace", "content_platform", "api_service",
-    "data_pipeline", "ml_platform", "internal_tool", "ecommerce", "rag_app"
-]
+# Project types removed - detection is now feature-based
 
 @dataclass
 class WizardState:
@@ -27,7 +24,8 @@ class WizardState:
     name: str = "my-app"
     target: Literal["local", "kubernetes", "aws", "gcp"] = "local"
     profile: Literal["local", "staging", "production"] = "local"
-    project_type: str = "saas"
+    scale: str = "small"
+    access_pattern: str = "balanced"
     
     # 2. Infrastructure
     databases: list[str] = field(default_factory=list)
@@ -37,10 +35,23 @@ class WizardState:
     observability: str = "none"
     ci_cd: list[str] = field(default_factory=list)
     
+    # 2.1 Contextual Infra Follow-ups
+    pg_replicas: int = 1
+    msg_mps: str = "under 1k" # messages per second
+    msg_partitions: int = 3
+    auth_pattern: str = "JWT stateless"
+    storage_buckets: list[str] = field(default_factory=list)
+    alert_channels: list[str] = field(default_factory=list)
+    cloud_provider: str = "bare-metal"
+    
     # 3. Features & Components
     api_framework: str = "fastapi"
     features: list[str] = field(default_factory=list)
     generate_guide: bool = True
+    
+    # 3.1 Advanced Feature Follow-ups
+    tenancy_model: str = "separate schemas"
+    max_rps: int = 100
     
     # 4. MLOps (Optional)
     enable_mlops: bool = False
@@ -52,11 +63,19 @@ class WizardState:
     ml_agents: list[str] = field(default_factory=list)
     ml_caching: list[str] = field(default_factory=list)
     
+    # 4.1 MLOps Follow-ups
+    ml_training_enabled: bool = False
+    ml_orchestrator: str = "prefect"
+    ml_embedding_dim: int = 1536
+    
     # 5. Data Models
     models: dict[str, Any] = field(default_factory=dict)
     
     # Tracking dirty steps for cascading invalidation
     completed_steps: set[int] = field(default_factory=set)
+    
+    # Auto-add tracking for confirmation screen
+    auto_added_modules: set[str] = field(default_factory=set)
 
     def to_config_dict(self) -> dict[str, Any]:
         """Assembles the actual NikameConfig dictionary."""
@@ -64,28 +83,55 @@ class WizardState:
             "name": self.name,
             "environment": {"target": self.target, "profile": self.profile},
             "project": {
-                "type": self.project_type,
-                "scale": "small", # Default scale for init
-                "access_pattern": "balanced",
+                "scale": self.scale,
+                "access_pattern": self.access_pattern,
             },
             "generate_guide": self.generate_guide,
             "models": self.models,
+            "_auto_added": self.auto_added_modules,
         }
+
+        # Mapping follow-ups to config
+        if self.target == "kubernetes":
+            cloud_map = {
+                "AWS EKS": "aws",
+                "GCP GKE": "gcp",
+                "Azure AKS": "azure",
+            }
+            config["environment"]["cloud"] = cloud_map.get(self.cloud_provider)
 
         # Infra
         if self.databases:
-            config["databases"] = {db: {} for db in self.databases}
+            config["databases"] = {}
+            for db in self.databases:
+                db_conf = {}
+                if db == "postgres":
+                    db_conf["replicas"] = self.pg_replicas
+                config["databases"][db] = db_conf
+
         if self.cache != "none":
             config["cache"] = {"provider": self.cache}
+        
         if self.messaging != "none":
-            config["messaging"] = {self.messaging: {}}
+            mps_partitions = {"under 1k": 3, "1k to 100k": 12, "100k plus": 48}
+            n_parts = mps_partitions.get(self.msg_mps, 3)
+            config["messaging"] = {self.messaging: {"topics": [{"name": "default", "partitions": n_parts}]}}
+        
         if self.gateway != "none":
             config["gateway"] = {"provider": self.gateway}
+
+        # Storage
+        if "minio" in self.databases or "minio" in self.features or "file_upload" in self.features:
+            config["storage"] = {"provider": "minio", "buckets": self.storage_buckets}
         
         # API & Features
         if self.api_framework != "none":
-            config["api"] = {"framework": self.api_framework}
-        
+            api_conf = {"framework": self.api_framework, "max_concurrency": self.max_rps}
+            config["api"] = api_conf
+            
+        if "auth" in self.features:
+            config["auth"] = {"provider": "postgres", "pattern": self.auth_pattern}
+            
         # MLOps
         if self.enable_mlops:
             config["mlops"] = {
@@ -96,49 +142,150 @@ class WizardState:
                 "vector_dbs": self.ml_vector_dbs,
                 "agents": self.ml_agents,
                 "caching": self.ml_caching,
+                "training_enabled": self.ml_training_enabled,
+                "embedding_dim": self.ml_embedding_dim
             }
+            if self.ml_training_enabled:
+                config["mlops"]["orchestrator"] = self.ml_orchestrator
+
             # Vector DBs also go into databases
             for vdb in self.ml_vector_dbs:
                 config.setdefault("databases", {})[vdb] = {}
 
+        # Observability alerting
+        if self.observability == "full" and self.alert_channels:
+            chan_map = {
+                "Slack webhook": "slack",
+                "PagerDuty": "pagerduty",
+                "email": "email",
+            }
+            channels = []
+            for c in self.alert_channels:
+                if c in chan_map:
+                    channels.append({"type": chan_map[c]})
+            if channels:
+                config.setdefault("observability", {})["alerting"] = {"channels": channels}
+
         # Features flat list
         all_features = list(self.features)
+        if "multi-tenancy" in all_features:
+            config.setdefault("features_config", {})["multi-tenancy"] = {"strategy": self.tenancy_model}
+            
         if all_features:
             config["features"] = all_features
 
         return config
 
+    def should_show(self, q_id: str) -> bool:
+        """Determines if a question should be asked based on state."""
+        # Database related
+        if q_id in ["db_extensions", "pg_replicas", "pgbouncer", "db_migrations"]:
+            return len(self.databases) > 0
+        
+        # Messaging related
+        if q_id in ["msg_topics", "msg_partitions", "msg_consumer_groups", "msg_dlq", "msg_outbox", "msg_mps"]:
+            return self.messaging != "none"
+            
+        # Cache related
+        if q_id in ["cache_ttl", "cache_eviction", "cache_cluster"]:
+            return self.cache != "none"
+            
+        # Storage related
+        if q_id in ["storage_buckets", "storage_types", "file_upload_presigned"]:
+            return "minio" in self.databases or "minio" in self.features or "file_upload" in self.features
+            
+        # Cloud provider
+        if q_id == "cloud_provider":
+            return self.target == "kubernetes"
+            
+        # LLM Serving related
+        if q_id in ["ml_vector_dbs", "ml_agents", "ml_caching"]:
+            return len(self.ml_serving) > 0
+            
+        # Deploy targets
+        if q_id in ["tf_section", "cloud_provider", "managed_services", "prod_replicas"]:
+            return self.target != "local"
+        if q_id in ["docker_ports", "docker_volumes"]:
+            return self.target != "kubernetes"
+            
+        # Observability
+        if q_id == "alert_delivery":
+            return self.observability == "full"
+            
+        # MLOps Section
+        if q_id == "mlops_section":
+            return self.enable_mlops
+            
+        # Misc rules
+        if q_id == "auth_pattern":
+            return "auth" in self.features
+        if q_id == "tenancy_model":
+            return "multi-tenancy" in self.features
+        if q_id == "max_rps":
+            return self.scale == "large"
+        if q_id == "ml_training_jobs":
+            return "mlflow" in self.ml_tracking
+        if q_id == "ml_orchestrator":
+            return self.ml_training_enabled
+        if q_id == "ml_embedding_dim":
+            return "qdrant" in self.ml_vector_dbs
+            
+        return True
+
+    def skip_reason(self, q_id: str) -> str:
+        """Returns the reason a question was skipped."""
+        if q_id in ["db_extensions", "pg_replicas", "pgbouncer", "db_migrations"]:
+            return "No databases selected."
+        if q_id in ["msg_topics", "msg_partitions", "msg_consumer_groups", "msg_dlq", "msg_outbox", "msg_mps"]:
+            return "No messaging selected."
+        if q_id in ["cache_ttl", "cache_eviction", "cache_cluster"]:
+            return "No cache selected."
+        if q_id in ["storage_buckets", "storage_types", "file_upload_presigned"]:
+            return "No storage selected."
+        if q_id in ["ml_vector_dbs", "ml_agents", "ml_caching"]:
+            return "No LLM serving module selected."
+        if q_id in ["tf_section", "managed_services", "prod_replicas"]:
+            return "Local deploy target."
+        if q_id == "cloud_provider":
+            return "Not deploying to Kubernetes."
+        if q_id in ["docker_ports", "docker_volumes"]:
+            return "Kubernetes deploy target."
+        if q_id == "alert_delivery":
+            return "Full observability not selected."
+        if q_id == "mlops_section":
+            return "No MLOps modules selected at all."
+        if q_id == "auth_pattern":
+            return "Auth feature not selected."
+        if q_id == "tenancy_model":
+            return "Multi-tenancy feature not selected."
+        if q_id == "max_rps":
+            return "Scale is not large."
+        if q_id == "ml_training_jobs":
+            return "MLflow not selected in tracking."
+        if q_id == "ml_orchestrator":
+            return "Training jobs not enabled."
+        if q_id == "ml_embedding_dim":
+            return "Qdrant not selected."
+            
+        return "Skipped based on previous answers."
+
     def validate_current_state(self) -> None:
         """Validates the current state against the actual Pydantic schema."""
         load_config_from_dict(self.to_config_dict())
 
-    def apply_type_presets(self) -> None:
-        """Applies smart defaults based on the project_type."""
-        tp = self.project_type
-        
-        # 1. MLOps enablement
-        if tp in ["ml_platform", "data_pipeline", "rag_app"]:
-            self.enable_mlops = True
-        
-        # 2. Infra presets
-        if tp == "ml_platform":
-            self.databases = ["postgres"]
-            self.cache = "dragonfly"
-            self.ml_vector_dbs = ["qdrant"]
-        elif tp == "rag_app":
-            self.ml_vector_dbs = ["qdrant"]
-            self.ml_agents = ["langchain"]
-        elif tp == "data_pipeline":
-            self.messaging = "redpanda"
-            self.databases = ["clickhouse"]
-        elif tp == "ecommerce":
-            self.databases = ["postgres", "mongodb"]
-            self.cache = "redis"
-
-    def invalidate_from(self, step_idx: int) -> None:
-        """Clears all steps from a certain index onwards."""
-        self.completed_steps = {s for s in self.completed_steps if s < step_idx}
-
+    def notify_auto_add(self, module: str, reason: str, trigger: str) -> None:
+        """Visual notification for auto-added modules."""
+        self.auto_added_modules.add(module)
+        content = (
+            f"[bold cyan]⚡ Auto-Added:[/bold cyan] {module}\n"
+            f"[bold white]Reason:[/bold white] {reason}\n"
+            f"[bold white]Triggered by:[/bold white] {trigger}"
+        )
+        console.print(Panel(
+            content,
+            border_style="yellow",
+            padding=(0, 2)
+        ))
 
 # ──────────────────────────── Wizard Engine ────────────────────────────
 
@@ -147,6 +294,7 @@ class SetupWizard:
         self.state = WizardState()
         self.current_step = 0
         self.edit_mode = False
+        self.skipped_notes: list[str] = []
         
         self.steps = [
             ("Project Basics", self._step_basics),
@@ -164,12 +312,23 @@ class SetupWizard:
         while self.current_step < len(self.steps):
             name, step_fn = self.steps[self.current_step]
             
-            # Skip MLOps if not auto-enabled and not manually requested
+            # Smart Elimination Logic
+            skip = False
             if name == "MLOps & AI" and not self.state.enable_mlops:
+                skip = True
+                self.skipped_notes.append("Skipped MLOps section (not enabled).")
+            
+            if skip:
                 self.current_step += 1
                 continue
                 
             try:
+                # Print skipped notes if any
+                if self.skipped_notes:
+                    for note in self.skipped_notes:
+                        console.print(f"[dim]→ {note}[/dim]")
+                    self.skipped_notes = []
+
                 step_fn()
                 self.state.completed_steps.add(self.current_step)
                 
@@ -215,19 +374,6 @@ class SetupWizard:
             default=self.state.profile
         ).ask()
 
-        old_type = self.state.project_type
-        self.state.project_type = questionary.select(
-            "What kind of project is this?",
-            choices=PROJECT_TYPES,
-            default=self.state.project_type
-        ).ask()
-
-        # Cascading Invalidation
-        if self.state.project_type != old_type:
-            console.print("[dim]Project type changed. Re-applying presets...[/dim]")
-            self.state.apply_type_presets()
-            self.state.invalidate_from(1) 
-
         # Immediate Validation
         self.state.validate_current_state()
 
@@ -235,42 +381,105 @@ class SetupWizard:
     def _step_infra(self) -> None:
         console.print(Panel("[bold cyan]Step 2: Infrastructure[/bold cyan]", expand=False))
         
-        # Databases (NO Vector DBs here anymore)
+        # 1. Databases
         db_choices = [
             questionary.Choice("postgres  — Relational (standard)", value="postgres", 
                                checked=("postgres" in self.state.databases)),
             questionary.Choice("mongodb   — Document / Schemaless", value="mongodb",
                                checked=("mongodb" in self.state.databases)),
+            questionary.Choice("clickhouse — High-perf Analytics", value="clickhouse",
+                               checked=("clickhouse" in self.state.databases)),
+            questionary.Choice("neo4j     — Graph DB", value="neo4j",
+                               checked=("neo4j" in self.state.databases)),
         ]
-        if self.state.project_type in ["data_pipeline", "ml_platform"]:
-            db_choices.append(questionary.Choice("clickhouse — High-perf Analytics", value="clickhouse",
-                                                checked=("clickhouse" in self.state.databases)))
-        
-        db_choices.append(questionary.Choice("neo4j     — Graph DB", value="neo4j",
-                                            checked=("neo4j" in self.state.databases)))
 
         self.state.databases = questionary.checkbox(
             "Select core databases:",
             choices=db_choices
         ).ask() or []
+        
+        # Follow-up: Postgres
+        if self.state.should_show("pg_replicas"):
+            if "postgres" in self.state.databases:
+                has_replicas = questionary.confirm("Will you need Postgres read replicas?", default=False).ask()
+                if has_replicas:
+                    self.state.pg_replicas = int(questionary.select("How many read replicas?", choices=["1", "2", "3"]).ask())
+        else:
+            console.print(f"[dim]→ Skipped Postgres replicas: {self.state.skip_reason('pg_replicas')}[/dim]")
 
+        # 2. Cache — Dragonfly removes Redis from choices (Phase 2 rule)
+        cache_choices = [
+            questionary.Choice("dragonfly (recommended)", value="dragonfly"),
+            questionary.Choice("none", value="none")
+        ]
+        # Only show Redis if Dragonfly not already selected
+        if self.state.cache != "dragonfly":
+            cache_choices.insert(1, questionary.Choice("redis", value="redis"))
+        
         self.state.cache = questionary.select(
             "Cache provider:",
-            choices=["dragonfly", "redis", "none"],
+            choices=cache_choices,
             default=self.state.cache
         ).ask()
 
-        self.state.messaging = questionary.select(
-            "Messaging backend:",
-            choices=["redpanda", "kafka", "rabbitmq", "none"],
-            default=self.state.messaging
-        ).ask()
+        # Follow-up: Cache options (e.g. eviction, cluster)
+        if self.state.should_show("cache_ttl"):
+            pass  # Future detailed cache questions
+        else:
+            console.print(f"[dim]→ Skipped cache details: {self.state.skip_reason('cache_ttl')}[/dim]")
 
+        # 3. Messaging (Incompatibility Block & Smart Elimination)
+        while True:
+            messaging_selections = questionary.checkbox(
+                "Messaging backend (Select up to one):",
+                choices=["redpanda", "kafka", "rabbitmq"]
+            ).ask() or []
+            
+            # Phase 4: Hard Incompatibility Block
+            if "kafka" in messaging_selections and "redpanda" in messaging_selections:
+                console.print(Panel("[bold red]These are both Kafka-compatible brokers. Select only one.[/bold red]", border_style="red"))
+                continue
+                
+            if len(messaging_selections) > 1:
+                console.print(Panel("[bold red]Only one messaging backend is supported right now.[/bold red]", border_style="red"))
+                continue
+                
+            self.state.messaging = messaging_selections[0] if messaging_selections else "none"
+            break
+
+        # Follow-up: Messaging throughput
+        if self.state.should_show("msg_mps"):
+            if self.state.messaging in ["redpanda", "kafka"]:
+                self.state.msg_mps = questionary.select(
+                    "Estimated messages per second?",
+                    choices=["under 1k", "1k to 100k", "100k plus"],
+                    default=self.state.msg_mps
+                ).ask()
+        else:
+            console.print(f"[dim]→ Skipped messaging topics & partitions: {self.state.skip_reason('msg_mps')}[/dim]")
+
+        # 4. Gateway
         self.state.gateway = questionary.select(
             "API Gateway:",
             choices=["traefik", "nginx", "none"],
             default=self.state.gateway
         ).ask()
+
+        # 5. Observability (needed for alert_delivery follow-up)
+        self.state.observability = questionary.select(
+            "Observability stack:",
+            choices=["full", "lightweight", "none"],
+            default=self.state.observability
+        ).ask()
+
+        # Follow-up: Alert delivery (Phase 5)
+        if self.state.should_show("alert_delivery"):
+            self.state.alert_channels = questionary.checkbox(
+                "Alert delivery channels:",
+                choices=["Slack webhook", "PagerDuty", "email", "none"]
+            ).ask() or []
+        else:
+            console.print(f"[dim]→ Skipped alert delivery: {self.state.skip_reason('alert_delivery')}[/dim]")
 
         self.state.validate_current_state()
 
@@ -278,27 +487,39 @@ class SetupWizard:
     def _step_features(self) -> None:
         console.print(Panel("[bold cyan]Step 3: Features & Components[/bold cyan]", expand=False))
         
-        self.state.api_framework = questionary.select(
-            "API Framework:",
-            choices=["fastapi", "none"],
-            default=self.state.api_framework
-        ).ask()
+        # 1. API Framework (Incompatibility Block: Only one)
+        while True:
+            api_selections = questionary.checkbox(
+                "API Framework(s):",
+                choices=["fastapi", "flask", "django"] # Added options to allow multi-select failure
+            ).ask() or []
+            
+            if len(api_selections) > 1:
+                console.print(Panel("[bold red]Only one API framework is supported. Select only one.[/bold red]", border_style="red"))
+                continue
+                
+            self.state.api_framework = api_selections[0] if api_selections else "none"
+            break
 
+        # 2. Features Selection
         base_features = [
             ("auth", "User Authentication"),
-            ("profiles", "User Profiles"),
+            ("multi-tenancy", "Multi-tenant logic"),
             ("file_upload", "File Storage & Uploads"),
-            ("email", "Transactional Email"),
-            ("payments", "Stripe Integration"),
             ("background_jobs", "AsyncTask Support"),
             ("admin_panel", "Internal Operations Admin"),
-            ("search", "Full-text Search engine"),
+            ("keycloak", "Keycloak SSO"),
+            ("authentik", "Authentik SSO"),
         ]
         
-        # Merge with Advanced Components
         from nikame.codegen.registry import COMPONENT_REGISTRY
-        
         all_choices = []
+        
+        # Smart Elimination: Auth requires database
+        auth_disabled = not self.state.databases
+        if auth_disabled:
+            self.skipped_notes.append("Auth requires a database. (Select one in Infrastructure to enable manually, or auto-add later)")
+
         for key, title in base_features:
             all_choices.append(questionary.Choice(
                 title=f"{key} — {title}", 
@@ -313,10 +534,95 @@ class SetupWizard:
                 checked=(key in self.state.features)
             ))
 
-        self.state.features = questionary.checkbox(
-            "Select Application Features & Components:",
-            choices=all_choices
-        ).ask() or []
+        while True:
+            self.state.features = questionary.checkbox(
+                "Select Application Features & Components:",
+                choices=all_choices
+            ).ask() or []
+
+            # Auth Provider Incompatibility
+            auth_providers = [f for f in self.state.features if f in ["keycloak", "authentik", "auth"]]
+            # Actually, "auth" is general, "keycloak" and "authentik" are specific. 
+            # Prompt specifically says: Keycloak and Authentik both selected
+            specific_auth = [f for f in self.state.features if f in ["keycloak", "authentik"]]
+            if len(specific_auth) > 1:
+                console.print(Panel("[bold red]Only one auth provider is supported. Select only one.[/bold red]", border_style="red"))
+                continue
+            break
+
+        # 3. Auto-add Logic with Notifications
+        if "auth" in self.state.features and not self.state.databases:
+            self.state.databases.append("postgres")
+            self.state.notify_auto_add("postgres", "Auth requires a database.", "auth feature selection")
+            
+        if "background_jobs" in self.state.features and self.state.cache == "none":
+            self.state.cache = "dragonfly"
+            self.state.notify_auto_add("dragonfly", "Background jobs require a cache.", "background_jobs feature selection")
+            
+        if "multi-tenancy" in self.state.features and "auth" not in self.state.features:
+            self.state.features.append("auth")
+            self.state.notify_auto_add("auth", "Multi-tenancy requires authentication.", "multi-tenancy feature selection")
+            if "postgres" not in self.state.databases and not self.state.databases:
+                self.state.databases.append("postgres")
+                self.state.notify_auto_add("postgres", "Auth requires a database.", "auth feature auto-add")
+            
+        if "file_upload" in self.state.features:
+            if "minio" not in self.state.databases and "minio" not in self.state.features:
+                self.state.features.append("minio")
+                self.state.notify_auto_add("minio", "File uploads require object storage.", "file_upload feature selection")
+
+        # 4. Contextual Follow-ups
+        if self.state.should_show("auth_pattern"):
+             self.state.auth_pattern = questionary.select(
+                 "What auth pattern?",
+                 choices=["JWT stateless", "JWT with refresh tokens", "session based"],
+                 default=self.state.auth_pattern
+             ).ask()
+        else:
+             console.print(f"[dim]→ Skipped auth pattern: {self.state.skip_reason('auth_pattern')}[/dim]")
+             
+        if self.state.should_show("tenancy_model"):
+            self.state.tenancy_model = questionary.select(
+                "Tenancy model?",
+                choices=["separate schemas", "row-level security", "separate databases"],
+                default=self.state.tenancy_model
+            ).ask()
+        else:
+            console.print(f"[dim]→ Skipped tenancy model: {self.state.skip_reason('tenancy_model')}[/dim]")
+
+        # Follow-up: MinIO storage types (Phase 5)
+        if self.state.should_show("storage_types"):
+            self.state.storage_buckets = questionary.checkbox(
+                "What will you store in MinIO?",
+                choices=["user uploads", "ML models", "backups", "exports"]
+            ).ask() or []
+        else:
+            console.print(f"[dim]→ Skipped storage types: {self.state.skip_reason('storage_types')}[/dim]")
+
+        # Scale Follow-up
+        self.state.scale = questionary.select(
+            "Select project scale:",
+            choices=["small", "medium", "large"],
+            default=self.state.scale
+        ).ask()
+        
+        if self.state.should_show("max_rps"):
+            self.state.max_rps = int(questionary.text(
+                "Expected peak requests per second?",
+                default=str(self.state.max_rps)
+            ).ask())
+        else:
+            console.print(f"[dim]→ Skipped peak RPS config: {self.state.skip_reason('max_rps')}[/dim]")
+
+        # Follow-up: K8s cloud (Phase 5)
+        if self.state.should_show("cloud_provider"):
+            self.state.cloud_provider = questionary.select(
+                "Which cloud?",
+                choices=["AWS EKS", "GCP GKE", "Azure AKS", "bare-metal"],
+                default=self.state.cloud_provider
+            ).ask()
+        else:
+            console.print(f"[dim]→ Skipped cloud provider: {self.state.skip_reason('cloud_provider')}[/dim]")
 
         self.state.generate_guide = questionary.confirm(
             "Generate project-specific GUIDE.md?",
@@ -328,32 +634,41 @@ class SetupWizard:
     # ── STEP 4: MLOps ──
     def _step_mlops(self) -> None:
         console.print(Panel("[bold cyan]Step 4: MLOps & AI Configuration[/bold cyan]", expand=False))
-        
-        if self.state.project_type not in ["ml_platform", "data_pipeline", "rag_app"]:
-            self.state.enable_mlops = questionary.confirm(
-                "Enable MLOps & AI capabilities?",
-                default=self.state.enable_mlops
-            ).ask()
+
+        # 1. Serving (The anchor for everything else)
+        while True:
+            self.state.ml_serving = questionary.checkbox(
+                "🚀 Model Serving — How will you serve AI models?",
+                choices=[
+                    questionary.Choice("vllm", value="vllm", checked=("vllm" in self.state.ml_serving)),
+                    questionary.Choice("ollama", value="ollama", checked=("ollama" in self.state.ml_serving)),
+                    questionary.Choice("llamacpp", value="llamacpp", checked=("llamacpp" in self.state.ml_serving)),
+                    questionary.Choice("triton", value="triton", checked=("triton" in self.state.ml_serving)),
+                ]
+            ).ask() or []
             
-            if not self.state.enable_mlops:
-                return
+            # Phase 4 Incompatibility: Mixing vLLM and llama.cpp
+            if "vllm" in self.state.ml_serving and "llamacpp" in self.state.ml_serving:
+                console.print(Panel("[bold red]Select one serving engine per model. You cannot mix vLLM and llama.cpp here.[/bold red]", border_style="red"))
+                continue
+            
+            # Phase 4 Incompatibility: vLLM on small scale
+            if "vllm" in self.state.ml_serving and self.state.scale == "small":
+                console.print(Panel("[bold yellow]vLLM requires significant GPU resources and is not recommended for small scale. Ollama or llama.cpp are better fits.[/bold yellow]", border_style="yellow"))
+                warn = questionary.confirm("Continue anyway?", default=False).ask()
+                if not warn:
+                    continue # Re-selection needed
+            break
 
-        # Sequential multi-selects for MLOps tools
-        self.state.ml_serving = questionary.checkbox(
-            "🚀 Model Serving — How will you serve AI models?",
-            choices=[
-                questionary.Choice("vllm", value="vllm", checked=("vllm" in self.state.ml_serving)),
-                questionary.Choice("ollama", value="ollama", checked=("ollama" in self.state.ml_serving)),
-                questionary.Choice("llamacpp", value="llamacpp", checked=("llamacpp" in self.state.ml_serving)),
-                questionary.Choice("tgi", value="tgi", checked=("tgi" in self.state.ml_serving)),
-                questionary.Choice("triton", value="triton", checked=("triton" in self.state.ml_serving)),
-                questionary.Choice("localai", value="localai", checked=("localai" in self.state.ml_serving)),
-                questionary.Choice("xinference", value="xinference", checked=("xinference" in self.state.ml_serving)),
-                questionary.Choice("airllm", value="airllm", checked=("airllm" in self.state.ml_serving)),
-                questionary.Choice("bentoml", value="bentoml", checked=("bentoml" in self.state.ml_serving)),
-            ]
-        ).ask() or []
+        # Smart Elimination: If no serving, everything else is skipped
+        if not self.state.ml_serving:
+            self.state.enable_mlops = False
+            self.skipped_notes.append("No LLM serving module selected — skipping vector DB, agents, and LLM caching.")
+            return
+            
+        self.state.enable_mlops = True
 
+        # 2. Tracking
         self.state.ml_tracking = questionary.checkbox(
             "📊 Experiment Tracking / Versioning:",
             choices=[
@@ -361,51 +676,48 @@ class SetupWizard:
                 questionary.Choice("dvc", value="dvc", checked=("dvc" in self.state.ml_tracking)),
             ]
         ).ask() or []
+        
+        if self.state.should_show("ml_training_jobs"):
+            self.state.ml_training_enabled = questionary.confirm("Will you run training jobs?", default=False).ask()
+            if self.state.should_show("ml_orchestrator"):
+                self.state.ml_orchestrator = questionary.select(
+                    "Which orchestrator?",
+                    choices=["prefect", "airflow", "zenml", "none"],
+                    default=self.state.ml_orchestrator
+                ).ask()
+            else:
+                console.print(f"[dim]→ Skipped ML orchestrator: {self.state.skip_reason('ml_orchestrator')}[/dim]")
+        else:
+            console.print(f"[dim]→ Skipped training jobs: {self.state.skip_reason('ml_training_jobs')}[/dim]")
 
-        self.state.ml_orchestration = questionary.checkbox(
-            "🔄 Pipeline Orchestration:",
-            choices=[
-                questionary.Choice("prefect", value="prefect", checked=("prefect" in self.state.ml_orchestration)),
-                questionary.Choice("airflow", value="airflow", checked=("airflow" in self.state.ml_orchestration)),
-                questionary.Choice("zenml", value="zenml", checked=("zenml" in self.state.ml_orchestration)),
-            ]
-        ).ask() or []
-
-        self.state.ml_monitoring = questionary.checkbox(
-            "🔍 Monitoring & Observability:",
-            choices=[
-                questionary.Choice("evidently", value="evidently", checked=("evidently" in self.state.ml_monitoring)),
-                questionary.Choice("langfuse", value="langfuse", checked=("langfuse" in self.state.ml_monitoring)),
-                questionary.Choice("arize-phoenix", value="arize-phoenix", checked=("arize-phoenix" in self.state.ml_monitoring)),
-            ]
-        ).ask() or []
-
+        # ... (Other MLOps multi-selects) ...
         self.state.ml_vector_dbs = questionary.checkbox(
             "🧠 Vector Databases (ML Store):",
             choices=[
                 questionary.Choice("qdrant", value="qdrant", checked=("qdrant" in self.state.ml_vector_dbs)),
-                questionary.Choice("weaviate", value="weaviate", checked=("weaviate" in self.state.ml_vector_dbs)),
-                questionary.Choice("milvus", value="milvus", checked=("milvus" in self.state.ml_vector_dbs)),
-                questionary.Choice("chroma", value="chroma", checked=("chroma" in self.state.ml_vector_dbs)),
                 questionary.Choice("pgvector", value="pgvector", checked=("pgvector" in self.state.ml_vector_dbs)),
             ]
         ).ask() or []
-
-        self.state.ml_agents = questionary.checkbox(
-            "🤖 Agent Frameworks:",
-            choices=[
-                questionary.Choice("langchain", value="langchain", checked=("langchain" in self.state.ml_agents)),
-                questionary.Choice("llamaindex", value="llamaindex", checked=("llamaindex" in self.state.ml_agents)),
-                questionary.Choice("haystack", value="haystack", checked=("haystack" in self.state.ml_agents)),
-            ]
-        ).ask() or []
-
-        self.state.ml_caching = questionary.checkbox(
-            "⚡ LLM Caching (Response Reuse):",
-            choices=[
-                questionary.Choice("gptcache", value="gptcache", checked=("gptcache" in self.state.ml_caching)),
-            ]
-        ).ask() or []
+        
+        # Phase 3 Auto-add for semantic search
+        if ("semantic-search" in self.state.features or "rag-pipeline" in self.state.features) and not self.state.ml_vector_dbs:
+            add_vdb = questionary.confirm("Semantic search needs a vector DB. Add Qdrant?", default=True).ask()
+            if add_vdb:
+                self.state.ml_vector_dbs.append("qdrant")
+                self.state.notify_auto_add("qdrant", "Semantic search component selected with no vector DB.", "semantic-search/rag-pipeline selection")
+        
+        # Follow-up: Qdrant
+        if self.state.should_show("ml_embedding_dim"):
+             self.state.ml_embedding_dim = int(questionary.select(
+                 "Embedding model?",
+                 choices=[
+                     questionary.Choice("OpenAI ada-002 (1536 dims)", value="1536"),
+                     questionary.Choice("sentence-transformers (384 dims)", value="384"),
+                     questionary.Choice("custom (ask for dimensions)", value="768"),
+                 ]
+             ).ask())
+        else:
+             console.print(f"[dim]→ Skipped embedding dim: {self.state.skip_reason('ml_embedding_dim')}[/dim]")
 
         self.state.validate_current_state()
 
@@ -474,7 +786,7 @@ def run_wizard() -> dict[str, Any]:
         results = client.search(query or "", sort="stars")
         
         if results:
-            choices = [f"{r['name']} ({r['id']}) - {r['stars']} ⭐" for r in results]
+            choices = [f"{r['name']} ({r['id']})" for r in results]
             choices.append("Cancel")
             selected = questionary.select("Select a template:", choices=choices).ask()
             
@@ -485,11 +797,14 @@ def run_wizard() -> dict[str, Any]:
                     raw = {k: v for k, v in template["raw"].items() if k != "registry_meta"}
                     
                     new_name = questionary.text("What is your new project name?").ask()
-                    wizard.state.project_name = new_name or raw.get("name", "my-project")
+                    wizard.state.name = new_name or raw.get("name", "my-project")
                     
                     # Hydrate state
-                    if "project" in raw and "type" in raw["project"]:
-                        wizard.state.project_type = raw["project"]["type"]
+                    if "project" in raw:
+                        if "scale" in raw["project"]:
+                            wizard.state.scale = raw["project"]["scale"]
+                        if "access_pattern" in raw["project"]:
+                            wizard.state.access_pattern = raw["project"]["access_pattern"]
                     if "environment" in raw and "target" in raw["environment"]:
                         wizard.state.target = raw["environment"]["target"]
                         wizard.state.profile = raw["environment"]["profile"]
@@ -545,22 +860,89 @@ def _print_confirmation_screen(config: dict[str, Any]) -> None:
     console.print(Panel("[bold green]NIKAME — FINAL REVIEW[/bold green]", expand=False))
     
     summary = Table(box=None, padding=(0, 2), show_header=False)
-    summary.add_row("[cyan]Project Info[/cyan]", f"{config['name']} ({config['project']['type']})")
+    summary.add_row("[cyan]Project Info[/cyan]", f"{config['name']} ([dim]{config['project']['scale']}[/dim])")
     summary.add_row("[cyan]Environment[/cyan]", f"{config['environment']['target']} / {config['environment']['profile']}")
     
     infra = []
-    if "databases" in config: infra.extend([f"✓ {d}" for d in config["databases"]])
-    if "cache" in config: infra.append(f"✓ {config['cache']['provider']}")
+    
+    def _format_infra(module_name: str, extra: str = "") -> str:
+        base = f"✓ {module_name}{extra}"
+        if module_name in config.get('_auto_added', set()):
+            base += " [dim](auto-added)[/dim]"
+        return base
+        
+    # We pass auto_added_modules via a temp hidden key because we don't serialize it normally
+    auto_added = config.get('_auto_added', set())
+
+    if "databases" in config: 
+        for db, conf in config["databases"].items():
+             extra = f" ([dim]{conf['replicas']} replicas[/dim])" if conf.get("replicas", 1) > 1 else ""
+             infra.append(_format_infra(db, extra))
+             
+    if "cache" in config: infra.append(_format_infra(config['cache']['provider']))
+    if "messaging" in config: infra.append(_format_infra(list(config['messaging'].keys())[0]))
     summary.add_row("[cyan]Infrastructure[/cyan]", "\n".join(infra))
     
     if "mlops" in config:
         ml = []
         for k, v in config["mlops"].items():
-            if v: ml.append(f"[bold]{k.title()}:[/bold] {', '.join(v)}")
+            if v and isinstance(v, list): ml.append(f"[bold]{k.title()}:[/bold] {', '.join(v)}")
+            elif v and k == "embedding_dim": ml.append(f"[bold]Embeddings:[/bold] {v}d")
         summary.add_row("[cyan]MLOps[/cyan]", "\n".join(ml))
+        
+    # Matrix Engine Section — show which integrations would trigger
+    try:
+        from nikame.config.loader import NikameConfig
+        from nikame.codegen.integrations.base import BaseIntegration
+        import importlib, pkgutil
+        
+        cfg_dict = dict(config)
+        cfg_dict.pop("_auto_added", None)
+        cfg = NikameConfig.model_validate(cfg_dict)
+        
+        # Build blueprint to get active modules
+        from nikame.blueprint.engine import _extract_active_modules
+        active_modules_dict = _extract_active_modules(cfg)
+        active_module_names = set(active_modules_dict.keys())
+        active_feature_names = set(cfg.features or [])
+        
+        # Discover and check integrations
+        import nikame.codegen.integrations as integ_pkg
+        from pathlib import Path
+        integ_path = Path(integ_pkg.__file__).parent
+        
+        triggered_names = []
+        for _, modname, _ in pkgutil.walk_packages([str(integ_path)], prefix="nikame.codegen.integrations."):
+            if modname.split(".")[-1] in ("base", "matrix", "__init__"):
+                continue
+            try:
+                mod = importlib.import_module(modname)
+                for attr_name in dir(mod):
+                    attr = getattr(mod, attr_name)
+                    if isinstance(attr, type) and issubclass(attr, BaseIntegration) and attr is not BaseIntegration:
+                        if attr.should_trigger(active_module_names, active_feature_names):
+                            # Use a clean display name
+                            display = attr.__name__.replace("Integration", "").replace("_", " ")
+                            triggered_names.append(display)
+            except Exception:
+                pass
+        
+        if triggered_names:
+            summary.add_row("[cyan]Matrix Engine[/cyan]", "\n".join([f"✓ {n}" for n in triggered_names]))
+        else:
+            summary.add_row("[cyan]Matrix Engine[/cyan]", "[dim]None detected[/dim]")
+    except Exception:
+        summary.add_row("[cyan]Matrix Engine[/cyan]", "[dim]None detected[/dim]")
+
+    
+    # Calculate a slightly more dynamic (but still estimated) cost based on modules
+    base_cost = 45.0
+    infra_count = len(config.get("databases", {})) + (1 if config.get("cache") else 0) + (1 if config.get("messaging") else 0)
+    estimated_cost = base_cost + (infra_count * 15.0)
+    if config["project"]["scale"] == "large": estimated_cost *= 3
     
     console.print(summary)
-    console.print("\n[dim]Estimated Monthly Infrastructure Cost: [bold yellow]~$85.00[/bold yellow][/dim]\n")
+    console.print(f"\n[dim]Estimated Monthly Infrastructure Cost: [bold yellow]~${estimated_cost:.2f}[/bold yellow][/dim]\n")
 
 def _show_confirmation(config_dict: dict[str, Any]) -> str:
     """Stand-alone confirmation screen for existing configs."""

@@ -73,7 +73,6 @@ class MatrixEngine:
         """Compute system variables based on project metadata."""
         scale = self.config.project.scale
         pattern = self.config.project.access_pattern
-        tp = self.config.project.type
         
         # Scale sizing
         if scale == "small":
@@ -83,14 +82,20 @@ class MatrixEngine:
         else: # medium
             max_conn, workers, partitions = 25, 4, 6
             
-        # Project Type specific tuning
-        if tp == "rag_app":
+        # Detect capabilities from features/modules
+        is_rag = any(f in self.active_features for f in ["rag-pipeline", "semantic-search"])
+        is_pipeline = any(f in self.active_features for f in ["data-pipeline", "streaming-ingestion"])
+        is_high_perf = any(m in self.active_modules for m in ["dragonfly", "clickhouse", "redpanda"])
+
+        if is_rag:
             # RAG apps are read-heavy on vectors, write-heavy on logs
             max_conn += 20 
-        elif tp == "data_pipeline":
+        if is_pipeline:
             # Pipelines need more partitions
             partitions *= 2
             workers *= 2
+        if is_high_perf:
+            max_conn = int(max_conn * 1.5)
 
         # Pattern tuning
         if pattern == "read_heavy":

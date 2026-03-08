@@ -147,8 +147,11 @@ def use(template_id: str) -> None:
     wizard = SetupWizard()
     
     # Hydrate state from raw dict (naive hydration for demo purposes)
-    if "project" in raw and "type" in raw["project"]:
-        wizard.state.project_type = raw["project"]["type"]
+    if "project" in raw:
+        if "scale" in raw["project"]:
+            wizard.state.scale = raw["project"]["scale"]
+        if "access_pattern" in raw["project"]:
+            wizard.state.access_pattern = raw["project"]["access_pattern"]
     if "environment" in raw and "target" in raw["environment"]:
         wizard.state.target = raw["environment"]["target"]
         wizard.state.profile = raw["environment"]["profile"]

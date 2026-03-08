@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: |
+          pip install ruff pytest
+          if [ -f app/requirements.txt ]; then pip install -r app/requirements.txt; fi
+      - name: Lint with Ruff
+        run: ruff check .
+      - name: Test with pytest
+        run: pytest
+
+  build-and-push:
+    needs: lint-and-test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: actions/setup-docker-action@v2
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${ github.actor }
+          password: ${ secrets.GITHUB_TOKEN }
+      - name: Build API for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: false
+          load: true
+          tags: my-app----[b-[b-api:scan
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'my-app----[b-[b-api:scan'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+      - name: Build and push API
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: true
+          tags: ghcr.io/${{ github.repository }}/my-app----[b-[b-api:latest
+
+  deploy:
+    needs: build-and-push
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Placeholder for K8s/Cloud deployment
+      - name: Deploy to local
+        run: echo "Deploying to local..."

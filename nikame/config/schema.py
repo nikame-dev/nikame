@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
 # ──────────────────────────── Environment ────────────────────────────
 
@@ -340,6 +340,9 @@ class MLOpsConfig(BaseModel):
     agents: list[Literal["langchain", "llamaindex", "haystack"]] = Field(
         default_factory=list
     )
+    training_enabled: bool = False
+    embedding_dim: int | None = None
+    orchestrator: str | None = None
 
 
 # ──────────────────────────── Data Modeling ────────────────────────────
@@ -384,17 +387,6 @@ class DataModelConfig(BaseModel):
 class ProjectConfig(BaseModel):
     """Deep metadata for project automation."""
 
-    type: Literal[
-        "saas",
-        "marketplace",
-        "content_platform",
-        "api_service",
-        "data_pipeline",
-        "ml_platform",
-        "internal_tool",
-        "ecommerce",
-        "rag_app",
-    ] = "saas"
     scale: Literal["small", "medium", "large"] = "small"
     access_pattern: Literal["read_heavy", "write_heavy", "balanced"] = "balanced"
     raw_models: str | None = None

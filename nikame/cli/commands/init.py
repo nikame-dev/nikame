@@ -141,7 +141,11 @@ def _generate_project(
         if manifests:
             writer.write_file("infra/kubernetes/manifests.yaml", manifests)
 
-    # Step 12: Helm chart (NEW)
+    # Step 12: Features Codegen (NEW)
+    with console.status("[info]Executing features codegen...[/info]"):
+        _generate_features(config, blueprint, writer)
+
+    # Step 13: Helm chart (NEW)
     with console.status("[info]Generating Helm chart...[/info]"):
         from nikame.composers.kubernetes.helm import generate_helm_chart
         helm_files = generate_helm_chart(blueprint)
@@ -473,7 +477,8 @@ def _generate_features(
 
     # 2. Discover and run features
     discover_codegen()
-
+    
+    # Run explicitly requested features
     for feature_name in config.features:
         codegen_cls = get_codegen_class(feature_name)
         if not codegen_cls:
@@ -505,6 +510,22 @@ def _generate_features(
                 writer.write_file(rel_path, content)
         except Exception as exc:
             raise NikameGenerationError(f"Failed to generate feature '{feature_name}': {exc}") from exc
+
+    # 3. Dynamic Auto-triggered Features (NEW)
+    from nikame.codegen.registry import _CODEGEN_REGISTRY
+    active_features = set(config.features)
+    for name, cls in _CODEGEN_REGISTRY.items():
+        if name in active_features: continue # Already handled
+        
+        if cls.should_trigger(set(active_module_names), active_features):
+            console.print(f"[info]Auto-triggering component: [bold]{name}[/bold][/info]")
+            codegen = cls(ctx, config)
+            try:
+                files = codegen.generate()
+                for rel_path, content in files:
+                    writer.write_file(rel_path, content)
+            except Exception as exc:
+                console.print(f"[warning]Failed to auto-generate '{name}': {exc}[/warning]")
 
 
 def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
@@ -698,7 +719,10 @@ def init(
         # Override output name if using preset
         output_dir = output / nikame_config.name if output == Path(".") else output
 
-        console.print("\n[success]🚀 NIKAME init[/success]\n")
+        if nikame_config.api:
+            console.print(f"[debug]API Framework: {nikame_config.api.framework}[/debug]")
+        else:
+            console.print("[error]No API found in config object[/error]")
         _generate_project(nikame_config, output_dir, dry_run=dry_run)
 
         console.print(f"\n[success]✨ Project generated at:[/success] [path]{output_dir}[/path]")

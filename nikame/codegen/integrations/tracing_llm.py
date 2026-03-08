@@ -37,7 +37,7 @@ class TracingLLMIntegration(BaseIntegration):
         return """
     # --- LangFuse Tracing ---
     try:
-        from app.core.integrations.llm_tracer import init_llm_tracer
+        from core.integrations.llm_tracer import init_llm_tracer
         logger.info("Initializing LangFuse LLM tracing...")
         init_llm_tracer()
     except Exception as e:
@@ -73,31 +73,28 @@ All calls to the LLM Gateway are instrumented with OpenTelemetry and LangFuse na
         user_extractor = ""
         
         if self.has_auth:
-            user_extractor = """
-    # Extract user_id from the authenticated request if possible
-    user_id = getattr(request.state, "user", {}).get("sub", "anonymous") if request else "system"
-    trace = langfuse.trace(
-        name=trace_name,
-        user_id=user_id,
-        metadata={"model": "%s"}
-    )""" % self.served_model
+            user_extractor = f'''
+        # Extract user_id from the authenticated request if possible
+        user_id = getattr(request.state, "user", {{}}).get("sub", "anonymous") if request else "system"
+        trace = langfuse.trace(
+            name=trace_name,
+            user_id=user_id,
+            metadata={{"model": "{self.served_model}"}}
+        )'''
         else:
-            user_extractor = """
-    trace = langfuse.trace(
-        name=trace_name,
-        metadata={"model": "%s"}
-    )""" % self.served_model
+            user_extractor = f'''
+        trace = langfuse.trace(
+            name=trace_name,
+            metadata={{"model": "{self.served_model}"}}
+        )'''
 
-        return f"""import logging
+        return f'''import logging
 import os
 from langfuse import LangFuse
 {auth_import}
-from app.core.config import settings
+from core.config import settings
 
 logger = logging.getLogger(__name__)
-
-# Initialize the LangFuse client singleton
-langfuse = None
 
 def init_llm_tracer():
     global langfuse
@@ -116,12 +113,12 @@ def init_llm_tracer():
         logger.info("LangFuse Keys not set. Tracing is bypassed.")
 
 def trace_llm_call(trace_name: str, request_input: str, response_output: str, request: any = None):
-    \"\"\"Log a full LLM trace to LangFuse.\"\"\"
+    """Log a full LLM trace to LangFuse."""
     if not langfuse:
         return
         
     try:
-        {user_extractor}
+{user_extractor}
         
         # Log the actual generation block
         trace.generation(
@@ -135,4 +132,4 @@ def trace_llm_call(trace_name: str, request_input: str, response_output: str, re
         logger.debug(f"Traced LLM call: {{trace_name}}")
     except Exception as e:
         logger.warning(f"Failed to record LangFuse trace: {{e}}")
-"""
+'''

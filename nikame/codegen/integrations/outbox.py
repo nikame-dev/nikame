@@ -19,7 +19,14 @@ if TYPE_CHECKING:
 class OutboxPatternIntegration(BaseIntegration):
     """Generates the transactional outbox pattern."""
 
-    REQUIRED_MODULES = ["postgres", "redpanda"]
+    REQUIRED_MODULES = ["postgres"]
+
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Trigger if postgres AND a Kafka-compatible broker are active."""
+        has_postgres = "postgres" in active_modules
+        has_broker = "redpanda" in active_modules or "kafka" in active_modules
+        return has_postgres and has_broker
     DEPENDS_ON = ["BrokerAutoWiringIntegration"]
 
     def __init__(self, *args, **kwargs):
