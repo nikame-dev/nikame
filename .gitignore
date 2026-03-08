@@ -32,16 +32,13 @@ build/
 *.egg-info/
 
 # NIKAME Generated Outputs
-output_migrations/
-output_mlops/
-output_replicas/
+output_*/
 debug-project/
-tests/
 infra/.env.generated
 .env.generated
 
 # Test artifacts
-tests/generation/__pycache__/
+tests/**/__pycache__/
 *.yaml
 !nikame.yaml
 !examples/nikame.yaml
