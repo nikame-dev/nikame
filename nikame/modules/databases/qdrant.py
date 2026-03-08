@@ -32,9 +32,15 @@ class QdrantModule(BaseModule):
                     f"{self.ctx.host_port_map.get('qdrant', 6333)}:6333",
                     f"{self.ctx.host_port_map.get('qdrant-grpc', 6334)}:6334"
                 ] if self.ctx.environment == "local" else [],
-                "volumes": ["qdrant_data:/qdrant/storage"],
-                "networks": [f"{self.ctx.project_name}_network"],
                 "healthcheck": self.health_check(),
+                "networks": [
+                    f"{self.ctx.project_name}_frontend",
+                    f"{self.ctx.project_name}_backend",
+                ],
+                "labels": {
+                    "nikame.module": "qdrant",
+                    "nikame.category": "database",
+                },
             }
         }
 
@@ -87,8 +93,11 @@ class QdrantModule(BaseModule):
     def health_check(self) -> dict[str, Any]:
         """Qdrant health check."""
         return {
-            "test": ["CMD", "curl", "-f", "http://localhost:6333/healthz"],
-            "interval": "30s",
+            "test": ["CMD-SHELL", "curl -f http://localhost:6333/v1/healthz || exit 1"],
+            "interval": "10s",
+            "timeout": "5s",
+            "retries": 10,
+            "start_period": "30s",
         }
 
     def env_vars(self) -> dict[str, str]:

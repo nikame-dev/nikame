@@ -71,4 +71,4 @@ class TimescaleDBModule(BaseModule):
 
     def env_vars(self) -> dict[str, str]:
         """Expose TIMESCALEDB_URL."""
-        return {"TIMESCALEDB_URL": "postgres://postgres:${TIMESCALEDB_PASSWORD}@timescaledb:5432/postgres"}
+        return {"TIMESCALEDB_URL": "postgresql+asyncpg://postgres:${TIMESCALEDB_PASSWORD}@timescaledb:5432/postgres"}

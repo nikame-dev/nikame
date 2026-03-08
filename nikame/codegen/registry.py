@@ -39,13 +39,19 @@ from nikame.codegen.components.stripe import StripeCodegen
 from nikame.codegen.components.vector_search import VectorSearchCodegen
 from nikame.codegen.components.webhooks import WebhookCodegen
 from nikame.codegen.components.websocket import WebSocketCodegen
+from nikame.codegen.components.storage_service import StorageServiceCodegen
+from nikame.codegen.features.streamlit import StreamlitCodegen
 
-# Register them manually or use the decorator in their files
+from nikame.codegen.ml_gateway import MLGatewayCodegen
+from nikame.codegen.schema_codegen import SchemaCodegen
+
+# Register all components and core codegens
 for cls in [
     GraphQLCodegen, GRPCCodegen, WebSocketCodegen, WebhookCodegen,
     APIKeyCodegen, MockDataCodegen, AuditLogCodegen, VectorSearchCodegen,
     SSECodegen, PubSubCodegen, MultiTenancyCodegen, CronJobsCodegen,
-    StripeCodegen, HealthCheckCodegen, RateLimitingCodegen
+    StripeCodegen, HealthCheckCodegen, RateLimitingCodegen,
+    StorageServiceCodegen, StreamlitCodegen, MLGatewayCodegen, SchemaCodegen
 ]:
     register_codegen(cls)
 
@@ -131,5 +137,10 @@ COMPONENT_REGISTRY: dict[str, dict[str, Any]] = {
         "category": "Dev Tools",
         "name": "Health Check Dashboard",
         "class": HealthCheckCodegen
+    },
+    "streamlit": {
+        "category": "Frontend",
+        "name": "Streamlit RAG Playground",
+        "class": StreamlitCodegen
     }
 }

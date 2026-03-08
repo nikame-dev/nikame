@@ -9,7 +9,7 @@ sorted list of module instances ready for composition.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 import networkx as nx  # type: ignore[import-untyped]
 
@@ -229,20 +229,61 @@ def _extract_active_modules(config: NikameConfig) -> dict[str, dict[str, Any]]:
             modules["woodpecker"] = {}
         if config.ci_cd.argocd:
             modules["argocd"] = {}
+        if config.ci_cd.github_actions:
+            modules["github_actions"] = {}
 
     # Tools
     if config.ngrok is not None:
         modules["ngrok"] = config.ngrok
+    if config.unleash is not None:
+        modules["unleash"] = config.unleash
 
-    # MLOps models
-    if config.mlops and config.mlops.models:
-        hw = HardwareDetector.detect()
-        model_services = []
-        for model_cfg in config.mlops.models:
-            backend = ServingSelector.select(model_cfg, hw)
-            service_name = f"{model_cfg.name}"
-            modules[backend] = model_cfg.model_dump()
-            model_services.append(service_name)
+    # MLOps
+    if config.mlops:
+        # 1. Models
+        if config.mlops.models:
+            hw = HardwareDetector.detect()
+            for model_cfg in config.mlops.models:
+                backend = ServingSelector.select(model_cfg, hw)
+                modules[backend] = model_cfg.model_dump()
+
+        # 2. Serving
+        from nikame.config.schema import ServingConfig, TrackingConfig, OrchestrationConfig
+        
+        if isinstance(config.mlops.serving, ServingConfig):
+            if config.mlops.serving.provider != "auto":
+                modules[config.mlops.serving.provider] = config.mlops.serving.model_dump()
+        else:
+            for mod_name in config.mlops.serving:
+                modules[mod_name] = {}
+
+        # 3. Tracking
+        if isinstance(config.mlops.tracking, TrackingConfig):
+            modules[config.mlops.tracking.provider] = config.mlops.tracking.model_dump()
+        else:
+            for mod_name in config.mlops.tracking:
+                modules[mod_name] = {}
+
+        # 4. Orchestration
+        if isinstance(config.mlops.orchestration, OrchestrationConfig):
+            modules[config.mlops.orchestration.provider] = config.mlops.orchestration.model_dump()
+        else:
+            for mod_name in config.mlops.orchestration:
+                modules[mod_name] = {}
+
+        # 5. Lists (Legacy/Simple)
+        for ml_list in [
+            config.mlops.feature_store,
+            config.mlops.monitoring,
+            config.mlops.vector_dbs,
+            config.mlops.caching,
+            config.mlops.agents,
+        ]:
+            for mod_name in ml_list:
+                modules[mod_name] = {}
+
+    # MLOps models (legacy fallback check)
+    elif config.mlops and config.mlops.models:
 
         # Add the unified gateway
         modules["ml-gateway"] = {"model_services": model_services}
@@ -324,28 +365,9 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
     # Step 2.1: Apply project optimizations
     _apply_project_optimizations(config, active_module_configs)
     
-    # Step 2.5: Resolve feature-to-module dependencies
-    from nikame.codegen.registry import discover_codegen, get_codegen_class
-    discover_codegen()
-    
-    for feature_name in config.features:
-        codegen_cls = get_codegen_class(feature_name)
-        if codegen_cls:
-            for mod_dep in codegen_cls.MODULE_DEPENDENCIES:
-                # Special case: dragonfly/valkey satisfies redis dependency, redpanda satisfies kafka
-                satisfied_by = {
-                    "redis": ["dragonfly", "valkey", "redis"],
-                    "kafka": ["redpanda", "kafka"]
-                }
-                
-                if mod_dep in satisfied_by:
-                    substitutes = satisfied_by[mod_dep]
-                    if any(sub in active_module_configs for sub in substitutes):
-                        continue
-                
-                if mod_dep not in active_module_configs:
-                    _log.info("Feature '%s' requires module '%s'. Adding to blueprint.", feature_name, mod_dep)
-                    active_module_configs[mod_dep] = {}
+    # Step 2.5: Feature-to-module dependency resolution removed in v0.3.4.
+    # Integrations and features are now triggered automatically by the Matrix Engine
+    # based on the selected infrastructure modules.
 
     _log.debug("Active modules after feature resolution: %s", list(active_module_configs.keys()))
 

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from nikame.modules.base import BaseModule
+from nikame.modules.base import BaseModule, ModuleContext
+from nikame.modules.registry import register_module
 
 
 class VaultModule(BaseModule):
@@ -31,35 +32,105 @@ class VaultModule(BaseModule):
                     "VAULT_DEV_LISTEN_ADDRESS": "0.0.0.0:8200",
                 },
                 "cap_add": ["IPC_LOCK"],
-                "networks": [f"{self.ctx.project_name}_network"],
+                "networks": [
+                    f"{self.ctx.project_name}_backend",
+                    f"{self.ctx.project_name}_data",
+                ],
                 "healthcheck": self.health_check(),
+                "labels": {
+                    "nikame.module": self.NAME,
+                    "nikame.category": self.CATEGORY,
+                },
             }
         }
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
-        """K8s Deployment for Vault."""
-        return [
-            {
-                "apiVersion": "apps/v1",
-                "kind": "Deployment",
-                "metadata": {"name": "vault", "namespace": self.ctx.namespace},
-                "spec": {
-                    "selector": {"matchLabels": {"app": "vault"}},
-                    "template": {
-                        "metadata": {"labels": {"app": "vault"}},
-                        "spec": {
-                            "containers": [
-                                {
-                                    "name": "vault",
-                                    "image": f"hashicorp/vault:{self.version}",
-                                    "ports": [{"containerPort": 8200}],
+        """K8s Deployment and Service for Vault."""
+        name = self.NAME
+        manifests = []
+
+        # 1. Service Account
+        manifests.append({
+            "apiVersion": "v1",
+            "kind": "ServiceAccount",
+            "metadata": {
+                "name": name,
+                "namespace": self.ctx.namespace,
+                "labels": {"nikame.module": name}
+            }
+        })
+
+        # 2. Service
+        manifests.append({
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "name": name,
+                "namespace": self.ctx.namespace,
+                "labels": {"nikame.module": name}
+            },
+            "spec": {
+                "ports": [{"port": 8200, "targetPort": 8200, "name": "http"}],
+                "selector": {"nikame.module": name}
+            }
+        })
+
+        # 3. PersistentVolumeClaim
+        manifests.append({
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+                "name": f"{name}-data",
+                "namespace": self.ctx.namespace,
+            },
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "resources": {"requests": {"storage": "1Gi"}}
+            }
+        })
+
+        # 4. Deployment
+        manifests.append({
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "name": name,
+                "namespace": self.ctx.namespace,
+                "labels": {"nikame.module": name}
+            },
+            "spec": {
+                "replicas": 1,
+                "selector": {"matchLabels": {"nikame.module": name}},
+                "template": {
+                    "metadata": {"labels": {"nikame.module": name}},
+                    "spec": {
+                        "serviceAccountName": name,
+                        "containers": [
+                            {
+                                "name": name,
+                                "image": f"hashicorp/vault:{self.version}",
+                                "args": ["server", "-dev", "-dev-root-token-id=root"],
+                                "ports": [{"containerPort": 8200}],
+                                "env": [
+                                    {"name": "VAULT_ADDR", "value": "http://0.0.0.0:8200"},
+                                    {"name": "VAULT_API_ADDR", "value": "http://0.0.0.0:8200"},
+                                ],
+                                "volumeMounts": [
+                                    {"name": "data", "mountPath": "/vault/data"}
+                                ],
+                                "securityContext": {
+                                    "capabilities": {"add": ["IPC_LOCK"]}
                                 }
-                            ]
-                        },
+                            }
+                        ],
+                        "volumes": [
+                            {"name": "data", "persistentVolumeClaim": {"claimName": f"{name}-data"}}
+                        ]
                     },
                 },
-            }
-        ]
+            },
+        })
+        return manifests
 
     def health_check(self) -> dict[str, Any]:
         """Vault health check."""
@@ -70,4 +141,6 @@ class VaultModule(BaseModule):
 
     def env_vars(self) -> dict[str, str]:
         """Expose VAULT_ADDR."""
-        return {"VAULT_ADDR": "http://vault:8200", "VAULT_TOKEN": "root"}
+        return {"VAULT_ADDR": f"http://vault.{self.ctx.namespace}.svc.cluster.local:8200", "VAULT_TOKEN": "root"}
+
+register_module(VaultModule)

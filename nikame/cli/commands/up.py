@@ -93,13 +93,83 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
             console.print(f"[warning]⚠ Could not check for port conflicts: {exc}[/warning]")
 
     console.print("[success]🚀 Starting Local Services (Docker Compose)...[/success]\n")
-    cmd = ["docker", "compose", "-f", str(compose_file)]
+
+    # ── Pre-flight checks ──
+    from nikame.cli.commands.preflight import (
+        check_python_imports, check_env_vars, check_dockerfiles
+    )
+    critical_checks = [check_python_imports, check_env_vars, check_dockerfiles]
+    preflight_failed = False
+    for check_fn in critical_checks:
+        try:
+            result = check_fn(project_dir)
+            if not result.passed and result.severity == "P0":
+                console.print(f"  [red]✗ {result.name}:[/red] {result.message}")
+                if result.fix_hint:
+                    console.print(f"    [dim]Fix: {result.fix_hint}[/dim]")
+                preflight_failed = True
+            elif not result.passed:
+                console.print(f"  [yellow]⚠ {result.name}:[/yellow] {result.message}")
+        except Exception:
+            pass
+    if preflight_failed:
+        console.print("\n[bold red]✗ Pre-flight failed. Fix P0 issues first.[/bold red]")
+        raise SystemExit(1)
+
+    cmd_base = ["docker", "compose", "-p", config.name, "-f", str(compose_file)]
     env_file = project_dir / ".env.generated"
-    if env_file.exists(): cmd.extend(["--env-file", str(env_file)])
-    cmd.append("up")
-    if detach: cmd.append("-d")
-    if build: cmd.append("--build")
-    if service: cmd.extend(service)
+    if env_file.exists(): cmd_base.extend(["--env-file", str(env_file)])
+
+    # ── ML-Aware Dependency Ordering ──
+    # Phase 1: Data stores (Postgres, Dragonfly/Redis, MinIO, Vector DBs)
+    # Phase 2: ML Tracking & Observability (MLflow, LangFuse, Evidently, Prefect)
+    # Phase 3: LLM Serving Engines (vLLM, TGI, Triton, etc.)
+    #
+    # If specific services are requested, skip ordering.
+    if not service:
+        all_services = list(compose_data.get("services", {}).keys())
+        
+        phase1_keywords = {"postgres", "pgbouncer", "dragonfly", "redis", "minio", "qdrant", "weaviate", "milvus", "chroma", "redpanda", "kafka", "clickhouse", "mongodb", "neo4j"}
+        phase2_keywords = {"mlflow", "langfuse", "evidently", "prefect", "airflow", "grafana", "prometheus", "alertmanager"}
+        phase3_keywords = {"vllm", "ollama", "llamacpp", "tgi", "triton", "localai", "xinference", "airllm", "bentoml", "whisper", "tts"}
+        
+        phase1 = [s for s in all_services if any(k in s for k in phase1_keywords)]
+        phase2 = [s for s in all_services if any(k in s for k in phase2_keywords) and s not in phase1]
+        phase3 = [s for s in all_services if any(k in s for k in phase3_keywords) and s not in phase1 and s not in phase2]
+        remaining = [s for s in all_services if s not in phase1 and s not in phase2 and s not in phase3]
+        
+        phases = [
+            ("Phase 1: Data Stores & Messaging", phase1),
+            ("Phase 2: ML Tracking & Observability", phase2),
+            ("Phase 3: Application & API", remaining),
+            ("Phase 4: LLM Serving Engines", phase3),
+        ]
+        
+        for label, svcs in phases:
+            if svcs:
+                console.print(f"  [info]{label}:[/info] {', '.join(svcs)}")
+                phase_cmd = cmd_base + ["up", "-d"] + svcs
+                try:
+                    subprocess.run(phase_cmd, check=True, cwd=str(project_dir))  # noqa: S603
+                    time.sleep(2)  # Brief pause between phases
+                except subprocess.CalledProcessError:
+                    console.print(f"\n[error]✗ Phase failed: {label}[/error]")
+                    # Try to capture logs of failed containers in this phase
+                    from nikame.utils.docker import get_project_containers, get_container_logs
+                    containers = get_project_containers(config.name)
+                    for c in containers:
+                        svc_name = c.name.split("-")[-2] if "-" in c.name else c.name
+                        if svc_name in svcs and (c.status != "running" or c.attrs.get("State", {}).get("Health", {}).get("Status") == "unhealthy"):
+                            console.print(f"\n[bold red]Logs for {c.name}:[/bold red]")
+                            console.print(get_container_logs(c, tail=20))
+                    raise SystemExit(1)
+        
+    else:
+        cmd = cmd_base + ["up"]
+        if detach: cmd.append("-d")
+        if build: cmd.append("--build")
+        cmd.extend(service)
+        subprocess.run(cmd, check=True, cwd=str(project_dir))  # noqa: S603
 
     # Validate volume paths before starting to avoid cryptic Docker errors
     volumes_to_check = [
@@ -119,7 +189,10 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
         # Priority 5: Health Check Verification
         _verify_health(config.name)
         
-        # Priority 6: Display Ngrok Tunnel (if active)
+        # Priority 6: ML-Specific Service URLs
+        _print_ml_urls(compose_data)
+        
+        # Priority 7: Display Ngrok Tunnel (if active)
         blueprint = build_blueprint(config)
         if "ngrok" in [m.NAME for m in blueprint.modules]:
             _display_ngrok_tunnel()
@@ -128,8 +201,17 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
         console.print("\n[error]✗ Docker Compose failed to start services.[/error]")
         
         # Check for specific common Docker errors
-        if "not a directory" in str(e) or "mount" in str(e).lower():
-            console.print("\n[tip]💡 Potential Fix:[/tip]")
+        error_msg = str(e) or ""
+        if "nvidia" in error_msg.lower() or "device driver" in error_msg.lower():
+            console.print("\n[tip]💡 Hardware Error Detected (GPU):[/tip]")
+            console.print("Docker could not find the 'nvidia' device driver. This usually means:")
+            console.print("1. You don't have an NVIDIA GPU or the drivers are not installed.")
+            console.print("2. The [bold]nvidia-container-toolkit[/bold] is not installed.")
+            console.print("\n[cyan]To fix this (CPU Fallback):[/cyan]")
+            console.print("Edit [bold]nikame.yaml[/bold] and set [bold]gpu: false[/bold] for your ML modules.")
+            console.print("Then run [bold]nikame regenerate[/bold] and try again.")
+        elif "not a directory" in error_msg or "mount" in error_msg.lower():
+            console.print("\n[tip]💡 Potential Fix (Mount Error):[/tip]")
             console.print("This usually happens when Docker tries to mount a file that doesn't exist yet, ")
             console.print("and creates a directory instead. Try these steps:")
             console.print("1. [bold]rm -rf configs/[/bold] (if empty) or delete the offending directory.")
@@ -137,6 +219,44 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
             console.print("3. Ensure you are on the latest version: [bold]pip install --upgrade nikame[/bold]")
         
         raise SystemExit(1)
+
+def _print_ml_urls(compose_data: dict) -> None:
+    """Print ML-specific UI URLs if those services exist."""
+    from rich.table import Table
+    
+    ml_urls = {
+        "mlflow": ("MLflow Tracking UI", 5000),
+        "langfuse": ("LangFuse Tracing UI", 3000),
+        "prefect-server": ("Prefect Orchestration UI", 4200),
+        "airflow-webserver": ("Airflow DAG UI", 8080),
+        "evidently": ("Evidently AI Dashboard", 8000),
+        "grafana": ("Grafana Dashboards", 3001),
+    }
+    
+    services = compose_data.get("services", {})
+    found = []
+    for svc_name, (label, default_port) in ml_urls.items():
+        if svc_name in services:
+            # Try to extract actual port from compose spec
+            ports = services[svc_name].get("ports", [])
+            port = default_port
+            if ports:
+                port_str = str(ports[0]).split(":")[0]
+                try:
+                    port = int(port_str)
+                except ValueError:
+                    pass
+            found.append((label, f"http://localhost:{port}"))
+    
+    if found:
+        table = Table(title="ML & Observability Dashboards", show_header=True)
+        table.add_column("Service", style="cyan")
+        table.add_column("URL", style="bold green")
+        for label, url in found:
+            table.add_row(label, url)
+        console.print("\n")
+        console.print(table)
+
 
 def _display_ngrok_tunnel() -> None:
     """Attempt to fetch and display the public Ngrok url from the local agent."""

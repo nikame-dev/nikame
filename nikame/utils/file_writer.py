@@ -26,19 +26,34 @@ class FileWriter:
     files for summary output, and auto-generates .env files with
     secure random secrets.
 
+    When buffered=True, files are stored in memory until flush() is called.
+    This allows the Rules Engine to validate and fix content before writing.
+
     Args:
         output_dir: Root directory for generated output.
         dry_run: If True, print diffs instead of writing.
+        buffered: If True, hold files in memory until flush().
     """
 
-    def __init__(self, output_dir: Path, *, dry_run: bool = False) -> None:
+    def __init__(self, output_dir: Path, *, dry_run: bool = False, buffered: bool = False) -> None:
         self.output_dir = output_dir
         self.dry_run = dry_run
+        self.buffered = buffered
         self._written_files: list[Path] = []
+        self._buffer: dict[str, str] = {}
         self._gitignore_entries: list[str] = [
             ".env.generated",
             ".nikame/",
         ]
+
+    @property
+    def buffer(self) -> dict[str, str]:
+        """Return the in-memory file buffer (for Rules Engine access)."""
+        return self._buffer
+
+    @buffer.setter
+    def buffer(self, value: dict[str, str]) -> None:
+        self._buffer = value
 
     @property
     def written_files(self) -> list[Path]:
@@ -48,19 +63,28 @@ class FileWriter:
     def write_file(self, relative_path: str, content: str) -> Path:
         """Write content to a file within the output directory.
 
+        In buffered mode, content is stored in memory.
+        In normal mode, content is written directly to disk.
+
         Args:
             relative_path: Path relative to output_dir.
             content: File content to write.
 
         Returns:
-            Absolute path to the written file.
+            Absolute path to the (eventual) file.
 
         Raises:
             NikameGenerationError: If file write fails.
         """
         target = self.output_dir / relative_path
+
         if self.dry_run:
             console.print(f"  [path]{relative_path}[/path]", style="dim")
+            return target
+
+        if self.buffered:
+            self._buffer[relative_path] = content
+            _log.debug("Buffered: %s", relative_path)
             return target
 
         try:
@@ -73,6 +97,28 @@ class FileWriter:
             raise NikameGenerationError(
                 f"Failed to write file '{relative_path}': {exc}"
             ) from exc
+
+    def flush(self) -> None:
+        """Write all buffered files to disk.
+
+        Called after the Rules Engine has validated and fixed the buffer.
+        """
+        if not self.buffered:
+            return
+
+        for relative_path, content in self._buffer.items():
+            target = self.output_dir / relative_path
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text(content, encoding="utf-8")
+                self._written_files.append(target)
+                _log.debug("Flushed: %s", target)
+            except OSError as exc:
+                raise NikameGenerationError(
+                    f"Failed to flush file '{relative_path}': {exc}"
+                ) from exc
+
+        self._buffer.clear()
 
     def write_yaml(self, relative_path: str, data: dict[str, Any]) -> Path:
         """Serialize a dict to YAML and write it.

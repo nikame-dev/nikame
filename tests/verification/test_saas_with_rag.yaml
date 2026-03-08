@@ -1,0 +1,16 @@
+name: test-saas-with-rag
+project:
+  type: saas
+  scale: small
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  qdrant: {}
+storage:
+  provider: minio
+mlops:
+  serving: [ollama]

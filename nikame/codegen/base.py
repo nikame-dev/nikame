@@ -66,6 +66,7 @@ class BaseCodegen(ABC):
     DESCRIPTION: str
     DEPENDENCIES: list[str] = []
     MODULE_DEPENDENCIES: list[str] = []
+    TRIGGER_MODULES: list[str] = []
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig | None = None) -> None:
         """Initialize the codegen feature with project context.
@@ -90,6 +91,13 @@ class BaseCodegen(ABC):
         """Return the wiring info for this feature."""
         return WiringInfo()
 
+    def generate_to_disk(self, output_dir: Path) -> None:
+        """Helper to write all generated files directly to an output directory."""
+        from nikame.utils.file_writer import FileWriter
+        writer = FileWriter(output_dir)
+        for path, content in self.generate():
+            writer.write_file(path, content)
+
     def guide_metadata(self) -> dict[str, Any]:
         """Return documentation metadata for this feature.
         
@@ -112,3 +120,14 @@ class BaseCodegen(ABC):
     def module_dependencies(self) -> list[str]:
         """Return the list of infrastructure module dependencies."""
         return list(self.MODULE_DEPENDENCIES)
+
+    def trigger_modules(self) -> list[str]:
+        """Return the list of modules that trigger this codegen."""
+        return list(self.TRIGGER_MODULES)
+
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Evaluate if this codegen feature should be triggered."""
+        if not cls.TRIGGER_MODULES:
+            return False
+        return all(m in active_modules for m in cls.TRIGGER_MODULES)

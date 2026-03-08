@@ -18,7 +18,7 @@ Manual infrastructure wiring is error-prone and tedious. NIKAME solves this by p
 - **Intelligent Matrix Engine**: Detects active modules and automatically injects integration layers (e.g., if you have `Postgres` and `Redpanda`, it automatically adds the **Transactional Outbox Pattern**).
 - **Production-Grade by Default**: Generates Kubernetes manifests with HPAs, PDBs, NetworkPolicies, and ResourceQuotas.
 - **Smart Stacks**: Pre-optimized blueprints for RAG, SaaS, Event-Driven, and Real-time Analytics.
-- **Cloud Native**: One-command Terraform and Helm generation for AWS, GCP, and Azure.
+- **Cloud Native**: One-command Terraform and Helm generation for AWS (GCP and Azure support coming soon).
 
 ---
 

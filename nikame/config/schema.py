@@ -17,7 +17,7 @@ class EnvironmentConfig(BaseModel):
     """Deployment target and profile configuration."""
 
     target: Literal["local", "kubernetes", "aws", "gcp", "azure", "baremetal"] = "local"
-    profile: Literal["local", "staging", "production"] = "local"
+    profile: Literal["local", "dev", "staging", "production"] = "local"
     cloud: Literal["aws", "gcp", "azure"] | None = None
     region: str | None = None
     namespace: str = "default"
@@ -180,7 +180,7 @@ class PostgresAuthConfig(BaseModel):
 class AuthConfig(BaseModel):
     """Authentication provider configuration."""
 
-    provider: Literal["keycloak", "authentik", "vault", "postgres"] = "keycloak"
+    provider: Literal["keycloak", "authentik", "vault", "postgres", "jwt"] = "keycloak"
     keycloak: KeycloakConfig = Field(default_factory=KeycloakConfig)
     postgres: PostgresAuthConfig = Field(default_factory=PostgresAuthConfig)
 
@@ -302,19 +302,44 @@ class MLModelConfig(BaseModel):
     token: str | None = None
     quantize: ModelQuantizationConfig = Field(default_factory=ModelQuantizationConfig)
     serve_with: Literal[
-        "auto", "vllm", "ollama", "triton", "llamacpp", "bentoml", "airllm"
+        "auto", "vllm", "ollama", "triton", "llamacpp", "bentoml", "tgi", "xinference", "localai", "whisper", "tts", "airllm"
     ] = "auto"
     replicas: int = 1
     gpu: Literal["required", "optional", "none"] = "optional"
 
 
+class ServingConfig(BaseModel):
+    provider: Literal["auto", "vllm", "ollama", "triton", "llamacpp", "bentoml", "tgi", "xinference", "localai", "whisper", "tts", "airllm"] = "auto"
+    gpu: bool = False
+    replicas: int = 1
+
+class TrackingConfig(BaseModel):
+    provider: Literal["mlflow", "dvc"] = "mlflow"
+    endpoint: str | None = None
+
+class OrchestrationConfig(BaseModel):
+    provider: Literal["prefect", "airflow", "zenml", "temporal"] = "prefect"
+
 class MLOpsConfig(BaseModel):
     """MLOps and model serving configuration."""
 
     models: list[MLModelConfig] = Field(default_factory=list)
-    experiment_tracking: str | None = None
-    feature_store: str | None = None
-    orchestrator: str | None = None
+    serving: ServingConfig | list[str] = Field(default_factory=ServingConfig)
+    tracking: TrackingConfig | list[Literal["mlflow", "dvc"]] = Field(default_factory=TrackingConfig)
+    feature_store: list[Literal["feast", "hopsworks"]] = Field(default_factory=list)
+    orchestration: OrchestrationConfig | list[Literal["prefect", "airflow", "zenml", "temporal"]] = Field(
+        default_factory=OrchestrationConfig
+    )
+    monitoring: list[Literal["evidently", "langfuse", "arize-phoenix"]] = Field(
+        default_factory=list
+    )
+    vector_dbs: list[Literal["qdrant", "weaviate", "milvus", "chroma", "pgvector"]] = Field(
+        default_factory=list
+    )
+    caching: list[Literal["gptcache"]] = Field(default_factory=list)
+    agents: list[Literal["langchain", "llamaindex", "haystack"]] = Field(
+        default_factory=list
+    )
 
 
 # ──────────────────────────── Data Modeling ────────────────────────────
@@ -368,6 +393,7 @@ class ProjectConfig(BaseModel):
         "ml_platform",
         "internal_tool",
         "ecommerce",
+        "rag_app",
     ] = "saas"
     scale: Literal["small", "medium", "large"] = "small"
     access_pattern: Literal["read_heavy", "write_heavy", "balanced"] = "balanced"
@@ -402,6 +428,7 @@ class NikameConfig(BaseModel):
     models: dict[str, DataModelConfig] = Field(default_factory=dict)
     ci_cd: CICDConfig = Field(default_factory=CICDConfig)
     ngrok: dict[str, Any] | None = None
+    unleash: dict[str, Any] | None = None
     compute_optimization: ComputeOptimizationConfig = Field(
         default_factory=ComputeOptimizationConfig
     )

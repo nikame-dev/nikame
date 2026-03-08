@@ -25,32 +25,34 @@ class VLLMModule(BaseModule):
 
     def compose_spec(self) -> dict[str, Any]:
         svc_name = self.config.get("name", f"vllm-{self.ctx.project_name}")
-        return {
-            svc_name: {
-                "image": f"vllm/vllm-openai:{self.version}",
-                "command": [
-                    "--model", str(self.model),
-                    "--gpu-memory-utilization", str(self.gpu_memory_util),
-                    "--tensor-parallel-size", str(self.tensor_parallel),
-                ],
-                "deploy": {
-                    "resources": {
-                        "reservations": {
-                            "devices": [
-                                {
-                                    "driver": "nvidia",
-                                    "count": self.tensor_parallel,
-                                    "capabilities": ["gpu"],
-                                }
-                            ]
-                        }
-                    }
-                },
-                "ports": [f"{self.ctx.host_port_map.get('vllm', 8000)}:8000"] if self.ctx.environment == "local" else [],
-                "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
-            }
+        spec = {
+            "image": f"vllm/vllm-openai:{self.version}",
+            "command": [
+                "--model", str(self.model),
+                "--gpu-memory-utilization", str(self.gpu_memory_util),
+                "--tensor-parallel-size", str(self.tensor_parallel),
+            ],
+            "ports": [f"{self.ctx.host_port_map.get('vllm', 8000)}:8000"] if self.ctx.environment == "local" else [],
+            "healthcheck": self.health_check(),
+            "networks": [f"{self.ctx.project_name}_network"],
         }
+
+        if self.config.get("gpu", True) is True:
+            spec["deploy"] = {
+                "resources": {
+                    "reservations": {
+                        "devices": [
+                            {
+                                "driver": "nvidia",
+                                "count": self.tensor_parallel,
+                                "capabilities": ["gpu"],
+                            }
+                        ]
+                    }
+                }
+            }
+
+        return {svc_name: spec}
 
     def health_check(self) -> dict[str, Any]:
         return {

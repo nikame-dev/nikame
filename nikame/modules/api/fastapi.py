@@ -35,8 +35,9 @@ class FastAPIModule(BaseModule):
         super().__init__(config, ctx)
         workers_val = config.get("workers", "auto")
         self.workers: int = 4 if workers_val == "auto" else int(workers_val)
-        self.cors_origins: list[str] = config.get("cors_origins", ["*"])
+        self.cors_origins: list[str] = config.get("cors_origins", ["http://localhost:3000"])
         self.port: int = config.get("port", 8000)
+        self.rate_limiting: dict[str, Any] = config.get("rate_limiting", {"enabled": False})
 
     def required_ports(self) -> dict[str, int]:
         """Requested API port."""
@@ -44,7 +45,7 @@ class FastAPIModule(BaseModule):
 
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for FastAPI."""
-        return {
+        spec = {
             "api": {
                 "build": {
                     "context": "../app",
@@ -61,13 +62,28 @@ class FastAPIModule(BaseModule):
                     **self.ctx.all_env_vars,
                 },
                 "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
+                "networks": [
+                    f"{self.ctx.project_name}_frontend",
+                    f"{self.ctx.project_name}_backend",
+                ],
                 "labels": {
                     "nikame.module": "fastapi",
                     "nikame.category": "api",
                 },
             }
         }
+
+        # Enable hot-reload for local development
+        if self.ctx.environment == "local":
+            spec["api"]["volumes"] = ["../app:/app"]
+            spec["api"]["command"] = [
+                "uvicorn", "main:app", 
+                "--host", "0.0.0.0", 
+                "--port", str(self.port), 
+                "--reload"
+            ]
+
+        return spec
 
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Generate full production-ready K8s architecture for FastAPI."""
@@ -305,6 +321,21 @@ class FastAPIModule(BaseModule):
         has_vector = has_qdrant # Alias
         has_temporal = any(m in ["temporal"] for m in self.ctx.active_modules)
         has_ngrok = any(m in ["ngrok"] for m in self.ctx.active_modules)
+        has_unleash = any(m in ["unleash"] for m in self.ctx.active_modules)
+        has_vault = any(m in ["vault"] for m in self.ctx.active_modules)
+        has_mlflow = any(m in ["mlflow"] for m in self.ctx.active_modules)
+        has_langfuse = any(m in ["langfuse"] for m in self.ctx.active_modules)
+        has_arize = any(m in ["arize-phoenix"] for m in self.ctx.active_modules)
+        has_evidently = any(m in ["evidently"] for m in self.ctx.active_modules)
+        
+        has_gptcache = "gptcache" in self.ctx.active_modules
+        has_langchain = "langchain" in self.ctx.active_modules
+        has_llamaindex = "llamaindex" in self.ctx.active_modules
+        has_haystack = "haystack" in self.ctx.active_modules
+        has_agents = has_langchain or has_llamaindex or has_haystack
+        
+        has_mlops_observability = has_langfuse or has_arize or has_evidently
+        has_limiter = self.rate_limiting.get("enabled", False)
         has_smtp = "email" in self.ctx.features
 
         files: list[tuple[str, str]] = []
@@ -314,6 +345,15 @@ class FastAPIModule(BaseModule):
             "from routers import health",
             "from sqlalchemy import text",
         ]
+        
+        if has_mlflow:
+            nikame_imports.append("from core.ml.tracking import init_tracking")
+            
+        if has_mlops_observability:
+            nikame_imports.append("from core.ml.observability import init_observability")
+        
+        if has_limiter:
+            nikame_imports.append("from core.limiter import init_limiter")
         
         if has_db:
             nikame_imports.append("from core.database import engine as db_engine")
@@ -356,7 +396,22 @@ import logging
 {imports_block}
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_data = {{
+            "timestamp": self.formatTime(record),
+            "level": record.levelname,
+            "message": record.getMessage(),
+            "module": record.module,
+            "service": settings.APP_NAME,
+        }}
+        if record.exc_info:
+            log_data["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_data)
+
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 @asynccontextmanager
@@ -389,12 +444,24 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.error(f"✗ Messaging service failed: {{e}}")
 
-    if {has_ngrok} and settings.APP_ENV == "local":
+    if {has_unleash}:
+        from core.features import start_features
+        start_features()
+
+    if {has_mlflow}:
+        init_tracking()
+        logger.info("✓ MLflow tracking initialized")
+
+    if {has_mlops_observability}:
+        init_observability(app)
+        logger.info("✓ ML Observability initialized")
+
+    if {has_limiter}:
         try:
-            public_url = await start_tunnel()
-            logger.info(f"✓ ngrok tunnel established: {{public_url}}")
+            await init_limiter(app)
+            logger.info("✓ Rate limiter initialized")
         except Exception as e:
-            logger.error(f"✗ ngrok tunnel failed: {{e}}")
+            logger.error(f"✗ Rate limiter failed: {{e}}")
 
     yield
     
@@ -486,12 +553,20 @@ class Settings(BaseSettings):
 
     # Database
     DATABASE_URL: str = "{self.ctx.all_env_vars.get('DATABASE_URL', '')}"
+    DATABASE_READ_URL: str = "{self.ctx.all_env_vars.get('DATABASE_READ_URL', self.ctx.all_env_vars.get('DATABASE_URL', ''))}"
 
     # Cache
     CACHE_URL: str = "{self.ctx.all_env_vars.get('CACHE_URL', self.ctx.all_env_vars.get('REDIS_URL', ''))}"
 
     # Messaging
     KAFKA_BOOTSTRAP_SERVERS: str = "{self.ctx.all_env_vars.get('KAFKA_BOOTSTRAP_SERVERS', 'redpanda:9092')}"
+    
+    # Observability
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = "{self.ctx.all_env_vars.get('OTEL_EXPORTER_OTLP_ENDPOINT', '')}"
+    
+    # Secrets
+    VAULT_ADDR: str = "{self.ctx.all_env_vars.get('VAULT_ADDR', '')}"
+    VAULT_TOKEN: str = "{self.ctx.all_env_vars.get('VAULT_TOKEN', '')}"
     MINIO_ENDPOINT: str = "{self.ctx.all_env_vars.get('MINIO_ENDPOINT', 'minio:9000')}"
     MINIO_ACCESS_KEY: str = "{self.ctx.all_env_vars.get('MINIO_ROOT_USER', 'minioadmin')}"
     MINIO_SECRET_KEY: str = "{self.ctx.all_env_vars.get('MINIO_ROOT_PASSWORD', 'minioadmin')}"
@@ -507,6 +582,11 @@ class Settings(BaseSettings):
     SMTP_USER: str = "user"
     SMTP_PASSWORD: str = "password"
     NGROK_AUTHTOKEN: str = "{self.ctx.all_env_vars.get('NGROK_AUTHTOKEN', '')}"
+
+    # Feature Flags
+    UNLEASH_API_URL: str = "{self.ctx.all_env_vars.get('UNLEASH_API_URL', 'http://unleash:4242/api')}"
+    UNLEASH_API_TOKEN: str = "{self.ctx.all_env_vars.get('UNLEASH_API_TOKEN', 'default-token')}"
+    UNLEASH_APP_NAME: str = "{project}"
 
     model_config = SettingsConfigDict(
         env_file=".env", 
@@ -529,6 +609,7 @@ from sqlalchemy import text, select
 from config import settings
 from typing import TypeVar, Type, Optional, List, Any
 
+# Primary engine for Writes
 engine = create_async_engine(
     settings.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://"),
     pool_pre_ping=True,
@@ -536,14 +617,39 @@ engine = create_async_engine(
     max_overflow=10,
 )
 
+# Replica engine for Reads (defaults to primary if no replica is configured)
+read_engine = create_async_engine(
+    settings.DATABASE_READ_URL.replace("postgres://", "postgresql+asyncpg://"),
+    pool_pre_ping=True,
+    pool_size=20,
+    max_overflow=10,
+)
+
+# Read/Write Session (Primary)
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
 
+# Read-Only Session (Replica)
+AsyncReadSessionLocal = async_sessionmaker(
+    bind=read_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
 async def get_db():
+    """Dependency for Read/Write operations."""
     async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()
+
+async def get_read_db():
+    """Dependency for Read-Only operations (optimized for replicas)."""
+    async with AsyncReadSessionLocal() as session:
         try:
             yield session
         finally:
@@ -894,6 +1000,219 @@ async def readiness():
         files.append(("app/routers/__init__.py", ""))
         files.append(("app/routers/health.py", health_py))
 
+        # 6.6 app/core/features.py
+        if has_unleash:
+            features_py = f'''"""
+Feature flag wrapper using Unleash.
+"""
+from UnleashClient import UnleashClient
+from config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+client = UnleashClient(
+    url=settings.UNLEASH_API_URL,
+    app_name=settings.UNLEASH_APP_NAME,
+    custom_headers={{'Authorization': settings.UNLEASH_API_TOKEN}},
+    environment=settings.APP_ENV
+)
+
+def start_features():
+    """Initialize the Unleash client."""
+    try:
+        client.initialize_client()
+        logger.info("Unleash client initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize Unleash client: {{e}}")
+
+def is_enabled(flag_name: str, context: dict = None, default_value: bool = False) -> bool:
+    """Check if a feature flag is enabled."""
+    return client.is_enabled(flag_name, context, default_value)
+'''
+            files.append(("app/core/features.py", features_py))
+
+        # 6.8 app/core/ml/tracking.py
+        if has_mlflow:
+            tracking_py = f'''"""
+MLflow experiment tracking client.
+"""
+import mlflow
+import os
+from config import settings
+
+def init_tracking():
+    """Initialize MLflow tracking URI and default experiment."""
+    mlflow.set_tracking_uri(settings.MLFLOW_TRACKING_URI)
+    # Ensure S3 endpoint is set for artifacts
+    os.environ["MLFLOW_S3_ENDPOINT_URL"] = settings.MLFLOW_S3_ENDPOINT_URL
+    os.environ["AWS_ACCESS_KEY_ID"] = settings.MINIO_ACCESS_KEY
+    os.environ["AWS_SECRET_ACCESS_KEY"] = settings.MINIO_SECRET_KEY
+    
+    mlflow.set_experiment(settings.APP_NAME)
+'''
+            files.append(("app/core/ml/__init__.py", ""))
+            files.append(("app/core/ml/tracking.py", tracking_py))
+
+        # 6.9 app/core/ml/observability.py
+        if has_mlops_observability:
+            obs_py = f'''"""
+ML Observability and Tracing configuration.
+"""
+import os
+import logging
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+def init_observability(app=None):
+    """Initialize LangFuse, Arize Phoenix, and Evidently integrations."""
+'''
+            if has_langfuse:
+                obs_py += '''
+    # Configure LangFuse
+    os.environ["LANGFUSE_PUBLIC_KEY"] = getattr(settings, "LANGFUSE_PUBLIC_KEY", "")
+    os.environ["LANGFUSE_SECRET_KEY"] = getattr(settings, "LANGFUSE_SECRET_KEY", "")
+    os.environ["LANGFUSE_HOST"] = getattr(settings, "LANGFUSE_HOST", "http://localhost:3000")
+    logger.info("LangFuse client configured")
+'''
+            if has_arize:
+                obs_py += '''
+    # Configure Arize Phoenix fastAPI instrumentation
+    try:
+        from openinference.instrumentation.fastapi import FastAPIInstrumentor
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        
+        endpoint = getattr(settings, "PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006/v1/traces")
+        tracer_provider = TracerProvider()
+        tracer_provider.add_span_processor(SimpleSpanProcessor(OTLPSpanExporter(endpoint)))
+        
+        if app:
+            FastAPIInstrumentor().instrument_app(app, tracer_provider=tracer_provider)
+            logger.info(f"Arize Phoenix fastAPI instrumentation attached to {endpoint}")
+    except ImportError:
+        logger.warning("openinference-instrumentation-fastapi not installed. Phoenix tracing disabled.")
+'''
+            if has_evidently:
+                obs_py += '''
+    # Configure Evidently UI connections (Placeholder for dataset routing)
+    os.environ["EVIDENTLY_HOST"] = getattr(settings, "EVIDENTLY_HOST", "http://localhost:8085")
+    logger.info("Evidently AI integration ready")
+'''
+            if "app/core/ml/__init__.py" not in [f[0] for f in files]:
+                files.append(("app/core/ml/__init__.py", ""))
+            files.append(("app/core/ml/observability.py", obs_py))
+
+        # 6.10 app/core/ml/caching.py
+        if has_gptcache:
+            caching_py = '''"""
+Semantic Caching using GPTCache.
+"""
+from gptcache import cache
+from gptcache.manager import get_data_manager, CacheBase, VectorBase
+from gptcache.processor.pre import get_prompt
+
+def init_gptcache():
+    """Initialize GPTCache with local or remote vector store."""
+    data_manager = get_data_manager(CacheBase("sqlite"), VectorBase("faiss", dimension=1536))
+    cache.init(
+        pre_embedding_func=get_prompt,
+        data_manager=data_manager,
+    )
+'''
+            if "app/core/ml/__init__.py" not in [f[0] for f in files]:
+                files.append(("app/core/ml/__init__.py", ""))
+            files.append(("app/core/ml/caching.py", caching_py))
+
+        # 6.11 app/core/ml/agents.py
+        if has_agents:
+            agents_py = '''"""
+Agent Framework Configuration.
+"""
+import logging
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+def get_agent_executor():
+    """Return the configured agent executor."""
+    logger.info("Initializing Agent framework...")
+    # Setup for LangChain / LlamaIndex / Haystack goes here
+    return None
+'''
+            if "app/core/ml/__init__.py" not in [f[0] for f in files]:
+                files.append(("app/core/ml/__init__.py", ""))
+            files.append(("app/core/ml/agents.py", agents_py))
+
+        # 6.7 app/core/limiter.py
+        if has_limiter:
+            limiter_py = f'''"""
+Distributed rate limiting using FastAPI-Limiter and Redis.
+"""
+from fastapi_limiter import FastAPILimiter
+from config import settings
+from core.cache import cache
+
+async def init_limiter(app):
+    """Initialize FastAPILimiter with the existing Redis connection."""
+    # Ensure cache is connected
+    if not cache.redis:
+        await cache.connect()
+    
+    await FastAPILimiter.init(cache.redis)
+'''
+            files.append(("app/core/limiter.py", limiter_py))
+
+        # 6.5 app/seeds.py
+        if has_db:
+            seed_py = '''"""
+Database seeding script using Faker.
+Run with `nikame db seed`.
+"""
+import asyncio
+import logging
+import json
+import os
+from faker import Faker
+from core.database import AsyncSessionLocal
+from sqlalchemy import text
+
+# Add your models here
+# from api.auth.models import User
+
+logger = logging.getLogger(__name__)
+fake = Faker()
+
+async def seed_data():
+    """Seed the database with initial data."""
+    async with AsyncSessionLocal() as session:
+        logger.info("Starting database seeding...")
+        
+        # Example: Seed Users
+        # for _ in range(10):
+        #     user = User(
+        #         email=fake.unique.email(),
+        #         username=fake.unique.user_name(),
+        #         hashed_password="hashed_password", # Replace with real hash
+        #         is_active=True
+        #     )
+        #     session.add(user)
+        
+        # Example: Raw SQL seed
+        # await session.execute(text("INSERT INTO ..."))
+        
+        await session.commit()
+        logger.info("Successfully seeded database.")
+
+if __name__ == "__main__":
+    # Configure basic logging for the script
+    logging.basicConfig(level=logging.INFO)
+    asyncio.run(seed_data())
+'''
+            files.append(("app/seeds.py", seed_py))
+
         # 7. app/Dockerfile
         dockerfile = f'''# Multi-stage production-ready Dockerfile for FastAPI
 FROM python:3.11-slim as builder
@@ -913,30 +1232,92 @@ HEALTHCHECK --interval=15s --timeout=5s --retries=3 CMD curl -f http://localhost
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "{self.port}", "--proxy-headers", "--forwarded-allow-ips", "*"]
 '''
         files.append(("app/Dockerfile", dockerfile))
+        # 8. app/pyproject.toml
+        pyproject = f'''[project]
+name = "{project}"
+version = "0.1.0"
+description = "FastAPI application generated by NIKAME"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.109.0,<1.0.0",
+    "uvicorn[standard]>=0.27.0,<1.0.0",
+    "pydantic-settings>=2.1.0,<3.0.0",
+    "httpx>=0.26.0,<1.0.0",
+    "python-logging-loki>=0.3.1",
+]
 
-        # 8. app/requirements.txt
+[project.optional-dependencies]
+db = [
+    "sqlalchemy>=2.0.0,<3.0.0",
+    "asyncpg>=0.29.0,<1.0.0",
+    "alembic>=1.13.0,<2.0.0",
+    "Faker>=23.0.0,<24.0.0",
+]
+cache = ["redis>=5.0.0,<6.0.0"]
+messaging = ["aiokafka>=0.10.0,<1.0.0"]
+features = ["unleash-client-python>=5.10.0"]
+ratelimit = ["fastapi-limiter>=0.1.5,<0.2.0"]
+storage = ["boto3>=1.34.0"]
+vector = ["qdrant-client>=1.7.0"]
+ml = ["mlflow>=2.10.0", "litellm>=1.10.0"]
+obs_ml = []
+
+
+[tool.uv]
+managed = true
+'''
+        files.append(("app/pyproject.toml", pyproject))
+
+        # 9. app/requirements.txt (Legacy compatibility)
         reqs = [
+            "# Auto-generated by NIKAME",
             "fastapi>=0.109.0,<1.0.0",
             "uvicorn[standard]>=0.27.0,<1.0.0",
             "pydantic-settings>=2.1.0,<3.0.0",
             "httpx>=0.26.0,<1.0.0",
-            "python-logging-loki>=0.3.1",
+            "python-logging-loki>=0.3.1"
         ]
         if has_db:
             reqs.extend([
                 "sqlalchemy>=2.0.0,<3.0.0",
                 "asyncpg>=0.29.0,<1.0.0",
                 "alembic>=1.13.0,<2.0.0",
+                "Faker>=23.0.0,<24.0.0"
             ])
+
         if has_cache:
             reqs.append("redis>=5.0.0,<6.0.0")
         if has_messaging:
             reqs.append("aiokafka>=0.10.0,<1.0.0")
         if has_ngrok:
             reqs.append("pyngrok>=7.0.0")
-
+        if has_unleash:
+            reqs.append("unleash-client-python>=5.10.0")
+        if has_limiter:
+            reqs.append("fastapi-limiter>=0.1.5,<0.2.0")
+        if has_mlflow:
+            reqs.extend(["mlflow>=2.10.0", "litellm>=1.10.0"])
+        if has_storage:
+            reqs.append("boto3>=1.34.0")
+        if has_vector:
+            reqs.append("qdrant-client>=1.7.0")
+        if has_langfuse:
+            reqs.append("langfuse>=2.0.0")
+        if has_arize:
+            reqs.extend(["openinference-instrumentation-fastapi>=0.1.0", "opentelemetry-sdk>=1.20.0", "opentelemetry-exporter-otlp>=1.20.0"])
+        if has_evidently:
+            reqs.append("evidently>=0.4.0")
+        if getattr(self, "has_gptcache", False):
+            reqs.append("gptcache>=0.1.43")
+        if has_langchain:
+            reqs.append("langchain>=0.1.0")
+        if has_llamaindex:
+            reqs.append("llama-index>=0.10.0")
+        if has_haystack:
+            reqs.append("farm-haystack>=1.25.0")
+            
         files.append(("app/requirements.txt", "\n".join(sorted(set(reqs))) + "\n"))
         files.append(("app/.dockerignore", "__pycache__\n*.pyc\n.env\n.venv\n.git\ntests/\nalembic/\n"))
 
         return files
-

@@ -11,6 +11,7 @@ from nikame.config.schema import NikameConfig
 class CronJobsCodegen(BaseCodegen):
     NAME = "cron_jobs"
     DESCRIPTION = "Celery-backed background jobs and cron scheduler"
+    TRIGGER_MODULES = ["fastapi", "redis"]
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
         super().__init__(ctx, config)

@@ -10,6 +10,7 @@ from nikame.config.schema import NikameConfig
 class StripeCodegen(BaseCodegen):
     NAME = "stripe"
     DESCRIPTION = "Stripe subscription billing and webhook integration"
+    TRIGGER_MODULES = ["fastapi", "postgres"]
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
         super().__init__(ctx, config)

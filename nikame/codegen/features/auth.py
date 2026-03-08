@@ -15,13 +15,13 @@ class AuthCodegen(BaseCodegen):
     DESCRIPTION = "JWT authentication, registration, and login"
     DEPENDENCIES: list[str] = []
     MODULE_DEPENDENCIES: list[str] = ["postgres"]
+    TRIGGER_MODULES: list[str] = ["fastapi", "postgres"]
 
     def generate(self) -> list[tuple[str, str]]:
         active_modules = self.ctx.active_modules
         has_messaging = any(m in ["redpanda", "kafka"] for m in active_modules)
 
-        models_py = """\\"\\"\\"SQLAlchemy User Models.\\"\\"\\"
-from sqlalchemy.orm import declarative_base
+        models_py = '"""SQLAlchemy User Models."""\n' + """from sqlalchemy.orm import declarative_base
 from sqlalchemy import Column, Integer, String, Boolean
 
 Base = declarative_base()
@@ -35,8 +35,7 @@ class User(Base):
     is_superuser = Column(Boolean, default=False)
 """
 
-        schemas_py = """\\"\\"\\"Pydantic schemas for Auth.\\"\\"\\"
-from pydantic import BaseModel, EmailStr
+        schemas_py = '"""Pydantic schemas for Auth."""\n' + """from pydantic import BaseModel, EmailStr
 
 class Token(BaseModel):
     access_token: str
@@ -57,8 +56,7 @@ class UserResponse(BaseModel):
         from_attributes = True
 """
 
-        security_py = """\\"\\"\\"Security utilities.\\"\\"\\"
-from passlib.context import CryptContext
+        security_py = '"""Security utilities."""\n' + """from passlib.context import CryptContext
 from datetime import datetime, timedelta
 import jwt
 
@@ -88,8 +86,7 @@ def create_access_token(subject: str, expires_delta: timedelta):
     if has_messaging:
         await kafka_service.send_message("user.events", {"event": "logged_in", "user_id": user.id, "email": user.email})""" if has_messaging else ""
 
-        router_py = f"""\\"\\"\\"Auth routing and logic.\\"\\"\\"
-from fastapi import APIRouter, Depends, HTTPException
+        router_py = '"""Auth routing and logic."""\n' + f"""from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select

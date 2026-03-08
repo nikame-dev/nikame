@@ -19,30 +19,32 @@ class OllamaModule(BaseModule):
 
     def compose_spec(self) -> dict[str, Any]:
         svc_name = self.config.get("name", f"ollama-{self.ctx.project_name}")
-        return {
-            svc_name: {
-                "image": f"ollama/ollama:{self.version}",
-                "volumes": [
-                    "ollama_data:/root/.ollama",
-                ],
-                "deploy": {
-                    "resources": {
-                        "reservations": {
-                            "devices": [
-                                {
-                                    "driver": "nvidia",
-                                    "count": 1,
-                                    "capabilities": ["gpu"],
-                                }
-                            ]
-                        }
-                    }
-                } if self.config.get("gpu", "optional") != "none" else {},
-                "ports": [f"{self.ctx.host_port_map.get('ollama', 11434)}:11434"] if self.ctx.environment == "local" else [],
-                "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
-            }
+        spec = {
+            "image": f"ollama/ollama:{self.version}",
+            "volumes": [
+                "ollama_data:/root/.ollama",
+            ],
+            "ports": [f"{self.ctx.host_port_map.get('ollama', 11434)}:11434"] if self.ctx.environment == "local" else [],
+            "healthcheck": self.health_check(),
+            "networks": [f"{self.ctx.project_name}_network"],
         }
+
+        if self.config.get("gpu", False) is True:
+            spec["deploy"] = {
+                "resources": {
+                    "reservations": {
+                        "devices": [
+                            {
+                                "driver": "nvidia",
+                                "count": 1,
+                                "capabilities": ["gpu"],
+                            }
+                        ]
+                    }
+                }
+            }
+
+        return {svc_name: spec}
 
     def health_check(self) -> dict[str, Any]:
         return {

@@ -40,7 +40,8 @@ class MatrixEngine:
         self._discover_integrations()
 
     def _discover_integrations(self) -> None:
-        """Auto-discover all BaseIntegration subclasses in the directory."""
+        """Auto-discover all BaseIntegration and BaseCodegen subclasses."""
+        # 1. Discover BaseIntegration subclasses in the integrations package
         package_path = Path(__file__).parent.resolve()
         package_name = "nikame.codegen.integrations"
 
@@ -60,11 +61,19 @@ class MatrixEngine:
                         self._registry[attr.__name__] = attr
             except Exception as e:
                 _log.warning(f"Failed to import integration module {modname}: {e}")
+        
+        # 2. Add BaseCodegen subclasses from COMPONENT_REGISTRY
+        from nikame.codegen.registry import COMPONENT_REGISTRY
+        for key, info in COMPONENT_REGISTRY.items():
+            cls = info.get("class")
+            if cls:
+                self._registry[cls.__name__] = cls
 
     def _compute_profile(self) -> OptimizationProfile:
         """Compute system variables based on project metadata."""
-        scale = getattr(self.config, "scale", "medium")
-        pattern = getattr(self.config, "access_pattern", "balanced")
+        scale = self.config.project.scale
+        pattern = self.config.project.access_pattern
+        tp = self.config.project.type
         
         # Scale sizing
         if scale == "small":
@@ -74,6 +83,15 @@ class MatrixEngine:
         else: # medium
             max_conn, workers, partitions = 25, 4, 6
             
+        # Project Type specific tuning
+        if tp == "rag_app":
+            # RAG apps are read-heavy on vectors, write-heavy on logs
+            max_conn += 20 
+        elif tp == "data_pipeline":
+            # Pipelines need more partitions
+            partitions *= 2
+            workers *= 2
+
         # Pattern tuning
         if pattern == "read_heavy":
             cache_ttl = 3600 * 24 # 24hrs
@@ -91,9 +109,15 @@ class MatrixEngine:
             worker_concurrency=workers
         )
 
-    def _topological_sort(self, triggered: list[BaseIntegration]) -> list[BaseIntegration]:
-        """Sort implementations dynamically via their DEPENDS_ON property."""
+    def _topological_sort(self, triggered: list[Any]) -> list[Any]:
+        """Sort implementations dynamically via their dependencies."""
         name_to_inst = {inst.__class__.__name__: inst for inst in triggered}
+        
+        # Also map by string NAME for BaseCodegen dependencies
+        str_name_to_cls_name = {}
+        for inst in triggered:
+            if hasattr(inst, "NAME"):
+                str_name_to_cls_name[inst.NAME] = inst.__class__.__name__
         
         # Build graph
         graph: dict[str, list[str]] = defaultdict(list)
@@ -101,9 +125,18 @@ class MatrixEngine:
         
         for inst in triggered:
             cls_name = inst.__class__.__name__
-            for dep in inst.DEPENDS_ON:
-                if dep in name_to_inst:
-                    graph[dep].append(cls_name)
+            
+            deps = getattr(inst, "DEPENDS_ON", [])
+            str_deps = getattr(inst, "DEPENDENCIES", [])
+            
+            all_deps = list(deps)
+            for d in str_deps:
+                if d in str_name_to_cls_name:
+                    all_deps.append(str_name_to_cls_name[d])
+
+            for dep_cls in all_deps:
+                if dep_cls in name_to_inst:
+                    graph[dep_cls].append(cls_name)
                     in_degree[cls_name] += 1
                     
         # Kahn's algorithm
@@ -134,10 +167,21 @@ class MatrixEngine:
         triggered_instances = []
         for name, cls in self._registry.items():
             if cls.should_trigger(self.active_modules, self.active_features):
-                # Instantiate with computed profile
-                instance = cls(self.config, self.blueprint, profile)
+                # Instantiate with computed profile or appropriate signatures
+                if issubclass(cls, BaseIntegration):
+                    instance = cls(self.config, self.blueprint, profile)
+                else:
+                    # BaseCodegen signature: (ctx, config)
+                    from nikame.codegen.base import CodegenContext
+                    ctx = CodegenContext(
+                        project_name=self.config.name,
+                        active_modules=list(self.active_modules),
+                        features=list(self.active_features)
+                    )
+                    instance = cls(ctx, self.config)
+                
                 triggered_instances.append(instance)
-                _log.debug(f"Matrix flagged integration: {name}")
+                _log.debug(f"Matrix flagged: {name}")
 
         if not triggered_instances:
             _log.debug("No matrix integrations triggered.")
@@ -155,16 +199,27 @@ class MatrixEngine:
         guides = []
         
         for integration in sorted_instances:
-            # 1. Write core output files independent of main.py
-            for path, content in integration.generate_core():
-                _log.info(f"Matrix writing integration file: {path}")
-                self.writer.write_file(path, content)
+            # 1. Write core output files
+            # Check if it's a BaseIntegration or BaseCodegen (they have different method names)
+            if isinstance(integration, BaseIntegration):
+                for path, content in integration.generate_core():
+                    _log.info(f"Matrix writing integration file: {path}")
+                    self.writer.write_file(path, content)
                 
-            # 2. Collect aggregation blocks
-            lifespans.append(integration.generate_lifespan())
-            health_checks.update(integration.generate_health())
-            metrics_blocks.append(integration.generate_metrics())
-            guides.append(integration.generate_guide())
+                # 2. Collect aggregation blocks
+                lifespans.append(integration.generate_lifespan())
+                health_checks.update(integration.generate_health())
+                metrics_blocks.append(integration.generate_metrics())
+                guides.append(integration.generate_guide())
+            else:
+                # BaseCodegen style
+                for path, content in integration.generate():
+                    _log.info(f"Matrix writing component file: {path}")
+                    self.writer.write_file(path, content)
+                
+                # For components, guide metadata is handled slightly differently
+                # but we can still extract it
+                guides.append(f"### {integration.NAME}\n{integration.DESCRIPTION}\n")
 
         # 3. Inject the collected components into main templates
         self._inject_into_app(lifespans, health_checks, metrics_blocks)

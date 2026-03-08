@@ -6,7 +6,7 @@ Allows local development environments to be exposed publicly.
 from __future__ import annotations
 
 from nikame.modules.base import BaseModule
-from nikame.codegen.registry import register_module
+from nikame.modules.registry import register_module
 
 @register_module
 class NgrokModule(BaseModule):
@@ -15,6 +15,7 @@ class NgrokModule(BaseModule):
     NAME = "ngrok"
     DESCRIPTION = "Secure tunneling to local localhost (local dev only)"
     CATEGORY = "tools"
+    DEFAULT_VERSION = "latest"
     DEFAULT_PORT = 4040 # Ngrok agent API
 
     def required_ports(self) -> dict[str, int]:

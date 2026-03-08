@@ -1,0 +1,31 @@
+version: '1.0'
+name: my-awesome-rag
+description: Production RAG with vector search and LLM serving.
+project:
+  type: rag_app
+  scale: medium
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  qdrant: {}
+storage:
+  provider: minio
+cache:
+  provider: dragonfly
+messaging:
+  redpanda: {}
+mlops:
+  serving:
+  - ollama
+  agents:
+  - langchain
+  caches:
+  - gptcache
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

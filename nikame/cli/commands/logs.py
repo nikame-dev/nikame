@@ -31,6 +31,13 @@ from nikame.utils.logger import console
     help="Number of lines to show (default: 100).",
 )
 @click.option(
+    "--raw",
+    is_flag=True,
+    default=False,
+    help="Show raw logs without JSON pretty-printing.",
+)
+@click.option(
+
     "--project-dir",
     type=click.Path(exists=True, path_type=Path),
     default=Path("."),
@@ -40,9 +47,15 @@ def logs(
     service: tuple[str, ...],
     follow: bool,
     tail: int,
+    raw: bool,
     project_dir: Path,
 ) -> None:
-    """Stream logs from running services."""
+    """Stream and pretty-print logs from running services."""
+    import json
+    import sys
+    from rich.text import Text
+
+
     compose_file = project_dir / "infra" / "docker-compose.yml"
     if not compose_file.exists():
         console.print("[error]✗ docker-compose.yml not found. Run 'nikame init' first.[/error]")
@@ -52,6 +65,12 @@ def logs(
     env_file = project_dir / ".env.generated"
     if env_file.exists():
         cmd.extend(["--env-file", str(env_file)])
+    
+    # We use --no-log-prefix if not raw to make JSON parsing easier
+    # But wait, standard docker compose logs output is: service-1 | {json}
+    # We'll just split on ' | '
+    
+
     cmd.extend(["logs", f"--tail={tail}"])
     if follow:
         cmd.append("-f")
@@ -59,9 +78,59 @@ def logs(
         cmd.extend(service)
 
     try:
-        subprocess.run(cmd, check=True, cwd=str(project_dir))
+        process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            cwd=str(project_dir)
+        )
+
+        while True:
+            line = process.stdout.readline()
+            if not line and process.poll() is not None:
+                break
+            if not line:
+                continue
+
+            line = line.strip()
+            if raw or " | " not in line:
+                console.print(line)
+                continue
+
+            try:
+                # Docker Compose format: "service_name | log_content"
+                parts = line.split(" | ", 1)
+                prefix = parts[0]
+                content = parts[1]
+
+                # Colorize prefix based on service name (simple hash)
+                color = f"color({(hash(prefix) % 6) + 1})"
+                prefix_text = Text(f"{prefix:15}", style=color)
+                
+                try:
+                    data = json.loads(content)
+                    # Pretty print JSON log
+                    level = data.get("level", "INFO")
+                    msg = data.get("message", content)
+                    tm = data.get("timestamp", "")
+                    
+                    level_style = "bold red" if level in ["ERROR", "CRITICAL"] else "bold yellow" if level == "WARNING" else "bold blue"
+                    
+                    console.print(f"{prefix_text} | [dim]{tm}[/dim] [{level_style}]{level:7}[/{level_style}] {msg}")
+                except (json.JSONDecodeError, TypeError):
+                    console.print(f"{prefix_text} | {content}")
+            except Exception:
+                console.print(line)
+
     except subprocess.CalledProcessError:
         console.print("[error]✗ Failed to retrieve logs.[/error]")
         raise SystemExit(1)
     except KeyboardInterrupt:
+        if 'process' in locals():
+            process.terminate()
         pass
+    finally:
+        if 'process' in locals():
+            process.wait()
+

@@ -27,6 +27,11 @@ class MinIOModule(BaseModule):
     def __init__(self, config: dict[str, Any], ctx: ModuleContext) -> None:
         super().__init__(config, ctx)
         self.buckets: list[str] = config.get("buckets", ["uploads"])
+        if any(m in ["mlflow"] for m in self.ctx.active_modules):
+            self.buckets.append("mlflow")
+        if any(m in ["dvc"] for m in self.ctx.active_modules):
+            self.buckets.append("dvc")
+        self.buckets = list(set(self.buckets))
 
 
     def required_ports(self) -> dict[str, int]:
@@ -57,7 +62,10 @@ class MinIOModule(BaseModule):
                 ),
                 "volumes": ["minio_data:/data"],
                 "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
+                "networks": [
+                    f"{self.ctx.project_name}_frontend",
+                    f"{self.ctx.project_name}_backend",
+                ],
                 "labels": {
                     "nikame.module": "minio",
                     "nikame.category": "storage",
@@ -68,7 +76,7 @@ class MinIOModule(BaseModule):
                 "depends_on": {"minio": {"condition": "service_healthy"}},
                 "entrypoint": "/bin/sh",
                 "command": self._bucket_init_command(),
-                "networks": [f"{self.ctx.project_name}_network"],
+                "networks": [f"{self.ctx.project_name}_backend"],
             },
         }
 

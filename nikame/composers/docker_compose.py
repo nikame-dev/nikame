@@ -27,9 +27,10 @@ def generate_compose(blueprint: Blueprint) -> dict[str, Any]:
     services: dict[str, Any] = {}
     volumes: dict[str, Any] = {}
     networks: dict[str, Any] = {
-        f"{blueprint.project_name}_network": {
-            "driver": "bridge",
-        }
+        f"{blueprint.project_name}_frontend": {"driver": "bridge"},
+        f"{blueprint.project_name}_backend": {"driver": "bridge"},
+        f"{blueprint.project_name}_data": {"driver": "bridge", "internal": True},
+        f"{blueprint.project_name}_network": {"driver": "bridge"},
     }
 
     for module in blueprint.modules:
@@ -43,6 +44,17 @@ def generate_compose(blueprint: Blueprint) -> dict[str, Any]:
                     service_name,
                     module.NAME,
                 )
+            
+            # Apply default log rotation (Item 12: Simplified log aggregation)
+            if "logging" not in service_config:
+                service_config["logging"] = {
+                    "driver": "json-file",
+                    "options": {
+                        "max-size": "10m",
+                        "max-file": "3"
+                    }
+                }
+            
             services[service_name] = service_config
 
             # Extract and register named volumes

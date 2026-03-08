@@ -160,6 +160,52 @@ def current(project_dir: Path) -> None:
         raise SystemExit(1)
 
 
+@db_group.command()
+@click.option(
+    "--project-dir",
+    type=click.Path(exists=True, path_type=Path),
+    default=Path("."),
+    help="Project directory.",
+)
+def seed(project_dir: Path) -> None:
+    """Populate the database with initial seed data."""
+    seed_script = project_dir / "app" / "seeds.py"
+    if not seed_script.exists():
+        console.print("[error]✗ app/seeds.py not found.[/error]")
+        console.print("[tip]Ensure your API module generates seeding support.[/tip]")
+        raise SystemExit(1)
+
+    console.print("[info]Seeding database...[/info]")
+    try:
+        # We run it via the local python interpreter, adding 'app' to PYTHONPATH
+        import os
+        import sys
+        env = os.environ.copy()
+        env["PYTHONPATH"] = str(project_dir / "app")
+        
+        # Load .env.generated if it exists
+        env_file = project_dir / ".env.generated"
+        if env_file.exists():
+            from dotenv import load_dotenv
+            load_dotenv(env_file)
+            # Re-copy env to get the loaded vars
+            env = os.environ.copy()
+            env["PYTHONPATH"] = str(project_dir / "app")
+
+        subprocess.run(
+            [sys.executable, str(seed_script)],
+            check=True,
+            cwd=str(project_dir / "app"),
+            env=env
+        )
+        console.print("[success]✓ Database seeded successfully.[/success]")
+    except subprocess.CalledProcessError:
+        console.print("[error]✗ Seeding failed.[/error]")
+        raise SystemExit(1)
+    except Exception as e:
+        console.print(f"[error]✗ An unexpected error occurred: {e}[/error]")
+        raise SystemExit(1)
+
 def _ensure_alembic(project_dir: Path) -> None:
     """Verify that alembic.ini exists in the project directory."""
     alembic_ini = project_dir / "alembic.ini"

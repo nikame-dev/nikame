@@ -21,6 +21,10 @@ class GitHubActionsModule(BaseModule):
     CATEGORY = "cicd"
     DESCRIPTION = "GitHub Actions — Production-ready CI/CD pipelines"
     DEFAULT_VERSION = "v1"
+    
+    def compose_spec(self) -> dict[str, Any]:
+        """GitHub Actions does not define Docker Compose services."""
+        return {}
 
     def scaffold_files(self) -> list[tuple[str, str]]:
         """Generate GitHub Actions workflow files."""
@@ -67,12 +71,28 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build API for scanning
+        uses: docker/build-push-action@v5
+        with:
+          context: ./app
+          push: false
+          load: true
+          tags: {project}-api:scan
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '{project}-api:scan'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
       - name: Build and push API
         uses: docker/build-push-action@v5
         with:
           context: ./app
           push: true
-          tags: ghcr.io/${{ github.repository }}/{project}-api:latest
+          tags: ghcr.io/${{{{ github.repository }}}}/{project}-api:latest
 
   deploy:
     needs: build-and-push

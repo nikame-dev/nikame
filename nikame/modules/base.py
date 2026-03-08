@@ -261,6 +261,68 @@ class BaseModule(ABC):
             "metadata": {"name": name, "namespace": self.ctx.namespace, "labels": {"app": name}}
         }
 
+    def service(self, name: str, port: int, target_port: int, type: str = "ClusterIP") -> dict[str, Any]:
+        """Generate a standard Kubernetes Service manifest."""
+        return {
+            "apiVersion": "v1",
+            "kind": "Service",
+            "metadata": {
+                "name": name,
+                "namespace": self.ctx.namespace,
+                "labels": {"app": name, "nikame.module": self.NAME}
+            },
+            "spec": {
+                "type": type,
+                "selector": {"app": name},
+                "ports": [{"port": port, "targetPort": target_port}]
+            }
+        }
+
+    def deployment(
+        self,
+        name: str,
+        image: str,
+        port: int,
+        replicas: int = 1,
+        env: dict[str, str] | None = None,
+        command: list[str] | None = None,
+        args: list[str] | None = None,
+    ) -> dict[str, Any]:
+        """Generate a standard Kubernetes Deployment manifest."""
+        container: dict[str, Any] = {
+            "name": name,
+            "image": image,
+            "ports": [{"containerPort": port}],
+            "resources": self.resource_requirements(),
+        }
+        if env:
+            container["env"] = [{"name": k, "value": v} for k, v in env.items()]
+        if command:
+            container["command"] = command
+        if args:
+            container["args"] = args
+
+        return {
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "metadata": {
+                "name": name,
+                "namespace": self.ctx.namespace,
+                "labels": {"app": name, "nikame.module": self.NAME}
+            },
+            "spec": {
+                "replicas": replicas,
+                "selector": {"matchLabels": {"app": name}},
+                "template": {
+                    "metadata": {"labels": {"app": name}},
+                    "spec": {
+                        "serviceAccountName": name,
+                        "containers": [container]
+                    }
+                }
+            }
+        }
+
     def network_policy(self, name: str, allow_from: list[str] = None) -> dict[str, Any]:
         """Generate NetworkPolicy manifest (Default Deny + Whitelist)."""
         rules = []

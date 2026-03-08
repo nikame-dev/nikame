@@ -32,6 +32,10 @@ class PostgresModule(BaseModule):
         self.pgbouncer: bool = config.get("pgbouncer", True)
         self.storage: str = config.get("storage", "10Gi")
         self.extensions: list[str] = config.get("extensions", [])
+        
+        self.is_pgvector = "pgvector" in self.ctx.active_modules
+        if self.is_pgvector and "vector" not in self.extensions:
+            self.extensions.append("vector")
 
 
     def required_ports(self) -> dict[str, int]:
@@ -39,31 +43,76 @@ class PostgresModule(BaseModule):
         return {"postgres": 5432}
 
     def compose_spec(self) -> dict[str, Any]:
-        """Generate Docker Compose services for PostgreSQL + pgBouncer."""
-        services: dict[str, Any] = {
-            "postgres": {
-                "image": f"postgres:{self.version}-alpine",
-                "restart": "unless-stopped",
-                "environment": {
-                    "POSTGRES_DB": "${POSTGRES_DB:-app}",
-                    "POSTGRES_USER": "${POSTGRES_USER:-postgres}",
-                    "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
-                    "POSTGRES_MAX_CONNECTIONS": str(self.max_connections),
-                },
-                "volumes": [
-                    "postgres_data:/var/lib/postgresql/data",
-                ],
-                "ports": [f"{self.ctx.host_port_map.get('postgres', 5432)}:5432"] if self.ctx.environment == "local" else [],
-                "healthcheck": self.health_check(),
-                "networks": [f"{self.ctx.project_name}_network"],
-                "labels": {
-                    "nikame.module": "postgres",
-                    "nikame.category": "database",
-                },
+        """Generate Docker Compose services for PostgreSQL + pgBouncer.
+        
+        If replicas > 1, switches to Bitnami images for automated replication setup.
+        """
+        project = self.ctx.project_name
+        
+        # Single instance case: Stick to official alpine image for simplicity
+        if self.replicas == 1:
+            base_image = f"pgvector/pgvector:pg{self.version}" if getattr(self, "is_pgvector", False) else f"postgres:{self.version}-alpine"
+            services: dict[str, Any] = {
+                "postgres": {
+                    "image": base_image,
+                    "restart": "unless-stopped",
+                    "environment": {
+                        "POSTGRES_DB": "${POSTGRES_DB:-app}",
+                        "POSTGRES_USER": "${POSTGRES_USER:-postgres}",
+                        "POSTGRES_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "POSTGRES_MAX_CONNECTIONS": str(self.max_connections),
+                    },
+                    "volumes": ["postgres_data:/var/lib/postgresql/data"],
+                    "ports": [f"{self.ctx.host_port_map.get('postgres', 5432)}:5432"] if self.ctx.environment == "local" else [],
+                    "healthcheck": self.health_check(),
+                    "networks": [f"{project}_data"],
+                    "labels": {"nikame.module": "postgres", "nikame.category": "database"},
+                }
             }
-        }
+        else:
+            # HA/Replication case: Bitnami images are much easier to configure via env vars
+            image = "public.ecr.aws/bitnami/postgresql:16.2.0"
+            services = {
+                "postgres": {
+                    "image": image,
+                    "restart": "unless-stopped",
+                    "environment": {
+                        "POSTGRESQL_DATABASE": "${POSTGRES_DB:-app}",
+                        "POSTGRESQL_USERNAME": "${POSTGRES_USER:-postgres}",
+                        "POSTGRESQL_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "POSTGRESQL_REPLICATION_MODE": "master",
+                        "POSTGRESQL_REPLICATION_USER": "repl_user",
+                        "POSTGRESQL_REPLICATION_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "POSTGRES_USER": "${POSTGRES_USER:-postgres}",
+                        "POSTGRES_DB": "${POSTGRES_DB:-app}",  # Required for healthcheck consistency
+                    },
+                    "volumes": ["postgres_data:/bitnami/postgresql"],
+                    "healthcheck": self.health_check(),
+                    "networks": [f"{project}_data"],
+                    "labels": {"nikame.module": "postgres", "nikame.role": "primary"},
+                },
+                "postgres-replica": {
+                    "image": image,
+                    "restart": "unless-stopped",
+                    "depends_on": {"postgres": {"condition": "service_healthy"}},
+                    "environment": {
+                        "POSTGRESQL_USERNAME": "${POSTGRES_USER:-postgres}",
+                        "POSTGRESQL_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "POSTGRESQL_MASTER_HOST": "postgres",
+                        "POSTGRESQL_REPLICATION_MODE": "slave",
+                        "POSTGRESQL_REPLICATION_USER": "repl_user",
+                        "POSTGRESQL_REPLICATION_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "POSTGRESQL_DATABASE": "${POSTGRES_DB:-app}",
+                        "POSTGRES_USER": "${POSTGRES_USER:-postgres}",
+                        "POSTGRES_DB": "${POSTGRES_DB:-app}",
+                    },
+                    "networks": [f"{project}_data"],
+                    "labels": {"nikame.module": "postgres", "nikame.role": "replica"},
+                }
+            }
 
         if self.pgbouncer:
+            # Primary RW Pool
             services["pgbouncer"] = {
                 "image": "public.ecr.aws/bitnami/pgbouncer:1.23.1",
                 "restart": "unless-stopped",
@@ -78,11 +127,46 @@ class PostgresModule(BaseModule):
                     "PGBOUNCER_DEFAULT_POOL_SIZE": "25",
                 },
                 "depends_on": {"postgres": {"condition": "service_healthy"}},
-                "networks": [f"{self.ctx.project_name}_network"],
-                "labels": {
-                    "nikame.module": "pgbouncer",
-                    "nikame.category": "database",
+                "networks": [f"{project}_backend", f"{project}_data"],
+                "labels": {"nikame.module": "pgbouncer", "nikame.role": "rw"},
+            }
+            
+            # Secondary RO Pool (only if replicas exist)
+            if self.replicas > 1:
+                services["pgbouncer-ro"] = {
+                    "image": "public.ecr.aws/bitnami/pgbouncer:1.23.1",
+                    "restart": "unless-stopped",
+                    "environment": {
+                        "POSTGRESQL_HOST": "postgres-replica",
+                        "POSTGRESQL_PORT": "5432",
+                        "POSTGRESQL_USERNAME": "${POSTGRES_USER:-postgres}",
+                        "POSTGRESQL_PASSWORD": "${POSTGRES_PASSWORD}",
+                        "PGBOUNCER_DATABASE": "${POSTGRES_DB:-app}",
+                        "PGBOUNCER_POOL_MODE": "transaction",
+                        "PGBOUNCER_MAX_CLIENT_CONN": "1000",
+                        "PGBOUNCER_DEFAULT_POOL_SIZE": "25",
+                    },
+                    "depends_on": {"postgres-replica": {"condition": "service_started"}},
+                    "networks": [f"{project}_backend", f"{project}_data"],
+                    "labels": {"nikame.module": "pgbouncer", "nikame.role": "ro"},
+                }
+
+        # Item 11: Daily Backup Service (Post-init, non-local)
+        if self.ctx.environment != "local":
+            services["postgres-backup"] = {
+                "image": "public.ecr.aws/bitnami/postgresql:16.2.0",
+                "restart": "unless-stopped",
+                "environment": {
+                    "POSTGRESQL_CLIENT_DATABASE": "${POSTGRES_DB:-app}",
+                    "POSTGRESQL_CLIENT_USERNAME": "${POSTGRES_USER:-postgres}",
+                    "POSTGRESQL_CLIENT_PASSWORD": "${POSTGRES_PASSWORD}",
+                    "POSTGRESQL_HOST": "postgres",
                 },
+                "depends_on": {"postgres": {"condition": "service_healthy"}},
+                "networks": [f"{project}_data"],
+                "labels": {"nikame.module": "postgres", "nikame.role": "backup"},
+                "entrypoint": ["/bin/bash", "-c", "while true; do pg_dump -h $POSTGRESQL_HOST -U $POSTGRESQL_CLIENT_USERNAME $POSTGRESQL_CLIENT_DATABASE > /backups/backup_$(date +%Y%m%d_%H%M%S).sql; sleep 86400; done"],
+                "volumes": ["postgres_backups:/backups"],
             }
 
         return services
@@ -90,7 +174,10 @@ class PostgresModule(BaseModule):
     def k8s_manifests(self) -> list[dict[str, Any]]:
         """Generate full production-ready K8s architecture for PostgreSQL."""
         name = "postgres"
-        image = f"postgres:{self.version}-alpine"
+        if self.replicas > 1:
+            image = "public.ecr.aws/bitnami/postgresql:16.2.0"
+        else:
+            image = f"pgvector/pgvector:pg{self.version}" if getattr(self, "is_pgvector", False) else f"postgres:{self.version}-alpine"
 
         # 1. StatefulSet
         statefulset: dict[str, Any] = {
@@ -214,30 +301,87 @@ class PostgresModule(BaseModule):
             name=name,
             image=f"{self.ctx.project_name}-api:latest",
             command=["alembic", "upgrade", "head"],
-            env=[{"name": "DATABASE_URL", "value": f"postgresql://postgres@postgres:5432/{self.ctx.project_name}"}]
+            env=[{"name": "DATABASE_URL", "value": f"postgresql+asyncpg://postgres@postgres:5432/{self.ctx.project_name}"}]
         ))
+
+        # 6. Backup CronJob
+        if self.ctx.environment != "local":
+            cron_name = f"{name}-backup"
+            manifests.append({
+                "apiVersion": "batch/v1",
+                "kind": "CronJob",
+                "metadata": {
+                    "name": cron_name,
+                    "namespace": self.ctx.namespace,
+                },
+                "spec": {
+                    "schedule": "0 2 * * *",
+                    "jobTemplate": {
+                        "spec": {
+                            "template": {
+                                "spec": {
+                                    "containers": [
+                                        {
+                                            "name": "backup",
+                                            "image": "public.ecr.aws/bitnami/postgresql:16.2.0",
+                                            "command": ["/bin/bash", "-c", f"pg_dump -h postgres -U postgres {self.ctx.project_name} > /backups/backup_$(date +%Y%m%d).sql"],
+                                            "envFrom": [{"secretRef": {"name": f"{name}-secret"}}],
+                                            "volumeMounts": [{"name": "backups", "mountPath": "/backups"}],
+                                        }
+                                    ],
+                                    "restartPolicy": "OnFailure",
+                                    "volumes": [
+                                        {
+                                            "name": "backups",
+                                            "persistentVolumeClaim": {"claimName": f"{cron_name}-pvc"}
+                                        }
+                                    ],
+                                }
+                            }
+                        }
+                    }
+                }
+            })
+            # Add PVC for backups
+            manifests.append({
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": {"name": f"{cron_name}-pvc", "namespace": self.ctx.namespace},
+                "spec": {
+                    "accessModes": ["ReadWriteOnce"],
+                    "resources": {"requests": {"storage": "20Gi"}}
+                }
+            })
 
         return manifests
 
     def health_check(self) -> dict[str, Any]:
         """PostgreSQL readiness probe."""
         return {
-            "test": ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"],
+            "test": ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-app}"],
             "interval": "10s",
             "timeout": "5s",
-            "retries": 5,
-            "start_period": "30s",
+            "retries": 10,
+            "start_period": "60s",
         }
 
     def env_vars(self) -> dict[str, str]:
         """Connection env vars — routes through pgBouncer if enabled."""
         host = "pgbouncer" if self.pgbouncer else "postgres"
         port = "5432"
-        return {
-            "DATABASE_URL": f"postgresql://${{POSTGRES_USER}}:${{POSTGRES_PASSWORD}}@{host}:{port}/${{POSTGRES_DB}}",
+        
+        vars = {
+            "DATABASE_URL": f"postgresql+asyncpg://${{POSTGRES_USER}}:${{POSTGRES_PASSWORD}}@{host}:{port}/${{POSTGRES_DB}}",
             "POSTGRES_HOST": host,
             "POSTGRES_PORT": port,
         }
+        
+        if self.replicas > 1:
+            read_host = "pgbouncer-ro" if self.pgbouncer else "postgres-replica"
+            vars["DATABASE_READ_URL"] = f"postgresql+asyncpg://${{POSTGRES_USER}}:${{POSTGRES_PASSWORD}}@{read_host}:{port}/${{POSTGRES_DB}}"
+            vars["POSTGRES_READ_HOST"] = read_host
+            
+        return vars
 
     def init_scripts(self) -> list[tuple[str, str]]:
         """Generate init SQL for requested extensions."""

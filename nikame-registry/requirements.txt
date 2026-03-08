@@ -1,0 +1,9 @@
+fastapi>=0.103.0
+uvicorn>=0.23.2
+sqlalchemy>=2.0.20
+psycopg2-binary>=2.9.7
+redis>=5.0.0
+pydantic>=2.3.0
+pyyaml>=6.0.1
+nikame>=0.2.0
+requests>=2.31.0

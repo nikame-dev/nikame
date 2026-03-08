@@ -10,6 +10,7 @@ from nikame.config.schema import NikameConfig
 class MultiTenancyCodegen(BaseCodegen):
     NAME = "multi_tenancy"
     DESCRIPTION = "Org-based data isolation (Multi-tenancy)"
+    TRIGGER_MODULES = ["fastapi", "postgres"]
 
     def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
         super().__init__(ctx, config)

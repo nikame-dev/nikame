@@ -15,56 +15,53 @@ from nikame.config.schema import DataModelConfig, FieldConfig, NikameConfig
 from nikame.utils.file_writer import FileWriter
 
 
-class SchemaCodegen:
+from nikame.codegen.base import BaseCodegen, CodegenContext
+
+class SchemaCodegen(BaseCodegen):
     """Engine to generate code from DataModelConfig."""
+    NAME = "schema"
+    DESCRIPTION = "SQLAlchemy/Pydantic stack generation from data models"
 
-    TYPE_MAP = {
-        "str": {"py": "str", "sa": "String"},
-        "int": {"py": "int", "sa": "Integer"},
-        "float": {"py": "float", "sa": "Float"},
-        "bool": {"py": "bool", "sa": "Boolean"},
-        "datetime": {"py": "datetime", "sa": "DateTime"},
-        "uuid": {"py": "uuid.UUID", "sa": "String"},
-        "text": {"py": "str", "sa": "String"},
-        "json": {"py": "Dict[str, Any]", "sa": "JSON"},
-        "email": {"py": "str", "sa": "String"},
-    }
-
-    def __init__(self, config: NikameConfig) -> None:
-        self.config = config
+    def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
+        super().__init__(ctx, config)
         template_dir = Path(__file__).parent.parent / "templates" / "codegen" / "schema"
         self.env = Environment(loader=FileSystemLoader(str(template_dir)))
 
-    def generate(self, output_dir: Path) -> None:
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Trigger if either postgres or neo4j or clickhouse is present AND models are defined.
+        Since we don't have the config here, we trigger if a DB is present.
+        """
+        db_modules = {"postgres", "neo4j", "clickhouse", "qdrant"}
+        return any(m in active_modules for m in db_modules)
+
+    def generate(self) -> list[tuple[str, str]]:
         """Render all model-based files."""
         if not self.config.models:
-            return
+            return []
             
-        self.writer = FileWriter(output_dir)
-
-        # Ensure directories exist
-        (output_dir / "app" / "models").mkdir(parents=True, exist_ok=True)
-        (output_dir / "app" / "schemas").mkdir(parents=True, exist_ok=True)
-        (output_dir / "app" / "api" / "v1" / "endpoints").mkdir(parents=True, exist_ok=True)
+        files = []
 
         for name, model_cfg in self.config.models.items():
             context = self._build_context(name, model_cfg)
 
             # 1. Models
             model_content = self.env.get_template("model.py.j2").render(context)
-            self.writer.write(output_dir / "app" / "models" / f"{name.lower()}.py", model_content)
+            files.append((f"app/models/{name.lower()}.py", model_content))
 
             # 2. Schemas
             schema_content = self.env.get_template("schema.py.j2").render(context)
-            self.writer.write(output_dir / "app" / "schemas" / f"{name.lower()}.py", schema_content)
+            files.append((f"app/schemas/{name.lower()}.py", schema_content))
 
             # 3. Routers
             router_content = self.env.get_template("router.py.j2").render(context)
-            self.writer.write(output_dir / "app" / "api" / "v1" / "endpoints" / f"{name.lower()}.py", router_content)
+            files.append((f"app/api/v1/endpoints/{name.lower()}.py", router_content))
 
         # 4. Seed Data Script
         seed_content = self.env.get_template("seed.py.j2").render({"models": list(self.config.models.keys())})
-        self.writer.write(output_dir / "scripts" / "seed_db.py", seed_content)
+        files.append(("scripts/seed_db.py", seed_content))
+        
+        return files
 
         # 5. Migration (Simple skeleton)
         # In production, we assume the user runs 'alembic revision --autogenerate'

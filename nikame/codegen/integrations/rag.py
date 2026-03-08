@@ -21,22 +21,35 @@ if TYPE_CHECKING:
 class RAGPipelineIntegration(BaseIntegration):
     """Generates the RAG document ingestion and querying pipeline."""
 
-    # Currently triggers if any LLM gateway variant is present
-    REQUIRED_MODULES = ["qdrant", "minio"]
-    # Usually we'd specify 'llamacpp', 'ollama', or 'vllm' here, 
-    # but since they all expose a standard Gateway, we trigger broadly.
+    # Dynamic trigger logic handles this
+    REQUIRED_MODULES = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Check if Postgres is active so we can store document metadata there
         self.use_postgres = "postgres" in self.active_modules
+        
+        # Determine the active vector DB
+        vdbs = ["qdrant", "weaviate", "milvus", "chroma", "pgvector"]
+        self.active_vdb = next((v for v in vdbs if v in self.active_modules), "qdrant")
 
     @classmethod
     def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
-        """Custom trigger: Requires Qdrant, MinIO, AND at least one LLM module."""
-        has_base = all(m in active_modules for m in cls.REQUIRED_MODULES)
-        has_llm = any(m in active_modules for m in ["llamacpp", "ollama", "vllm"])
-        return has_base and has_llm
+        """Custom trigger: Requires Vector DB, Object Storage, AND at least one LLM module."""
+        has_vdb = any(m in active_modules for m in ["qdrant", "weaviate", "milvus", "chroma", "pgvector"])
+        has_storage = any(m in active_modules for m in ["minio", "s3"])
+        has_llm = any(m in active_modules for m in ["llamacpp", "ollama", "vllm", "tgi", "triton", "localai", "xinference", "airllm"])
+        return has_vdb and has_storage and has_llm
+
+    def _get_vdb_service_name(self) -> str:
+        """Map module name to service class name."""
+        mapping = {
+            "qdrant": "QdrantService",
+            "weaviate": "WeaviateService",
+            "milvus": "MilvusService",
+            "chroma": "ChromaService",
+            "pgvector": "PostgresService"
+        }
+        return mapping.get(self.active_vdb, "VectorService")
 
     def generate_core(self) -> list[tuple[str, str]]:
         print("DEBUG: RAGPipelineIntegration.generate_core() CALLED")
@@ -58,14 +71,14 @@ class RAGPipelineIntegration(BaseIntegration):
         return files
 
     def generate_lifespan(self) -> str:
-        return """
+        return f"""
     # --- RAG Integration Startup ---
-    # Ensure Qdrant 'documents' collection exists
+    # Ensure {self.active_vdb.capitalize()} 'documents' collection exists
     try:
         from app.core.integrations.rag_pipeline import ensure_rag_collection
         await ensure_rag_collection()
     except Exception as e:
-        logger.warning(f"Could not initialize RAG collection: {e}")
+        logger.warning(f"Could not initialize RAG collection: {{e}}")
         """
 
     def generate_health(self) -> dict[str, str]:
@@ -88,16 +101,16 @@ class RAGPipelineIntegration(BaseIntegration):
         """
 
     def generate_guide(self) -> str:
-        return """
+        return f"""
 ### RAG Pipeline Integration
 **Status:** Active 🟢 
-**Components:** MinIO (Documents) + Qdrant (Vectors) + LLM Gateway
+**Components:** Object Storage (MinIO/S3) + {self.active_vdb.capitalize()} (Vectors) + LLM Gateway
 
 The RAG (Retrieval-Augmented Generation) pipeline is pre-wired to handle end-to-end document processing:
 
-1. **Upload**: Send a PDF to `/api/v1/rag/upload`. The file is stored in MinIO.
+1. **Upload**: Send a PDF to `/api/v1/rag/upload`. The file is stored in object storage.
 2. **Process**: Text is extracted, chunked, and embedded via the LLM Gateway.
-3. **Store**: Vector embeddings are saved to Qdrant.
+3. **Store**: Vector embeddings are saved to {self.active_vdb.capitalize()}.
 4. **Query**: Ask questions at `/api/v1/rag/query`. The system retrieves relevant chunks and synthesizes an answer.
 
 *Note: Since Postgres is active, document metadata (author, upload time, original filename) is automatically synced to the `document_meta` relational table alongside the vector IDs.*
@@ -105,14 +118,23 @@ The RAG (Retrieval-Augmented Generation) pipeline is pre-wired to handle end-to-
 
     def _generate_rag_service_py(self) -> str:
         """Generates the main orchestration logic."""
+        vdb_service_map = {
+            "qdrant": "QdrantService",
+            "weaviate": "WeaviateService",
+            "milvus": "MilvusService",
+            "chroma": "ChromaService",
+            "pgvector": "PGVectorService"
+        }
+        vdb_service = vdb_service_map.get(self.active_vdb, "VectorService")
+        
         template = f"""import uuid
 from typing import List, Dict, Any
 import logging
 from fastapi import UploadFile
 
 from app.core.config import settings
-from app.services.storage import MinIOService
-from app.services.vector_db import QdrantService
+from app.services.storage import StorageService
+from app.services.vector_db import {vdb_service}
 from app.services.llm_gateway import LLMGateway
 
 logger = logging.getLogger(__name__)
@@ -123,16 +145,16 @@ CHUNK_OVERLAP = 200
 
 async def ensure_rag_collection():
     \"\"\"Create the default vector collection if missing.\"\"\"
-    await QdrantService.create_collection("rag_documents", vector_size=384)
+    await {vdb_service}.create_collection("rag_documents", vector_size=384)
 
 async def process_document(file: UploadFile, metadata: Dict[str, Any] = None) -> str:
     \"\"\"End to end ingestion pipeline.\"\"\"
     doc_id = str(uuid.uuid4())
     
-    # 1. Store original file in MinIO
+    # 1. Store original file
     object_name = f"documents/{{doc_id}}_{{file.filename}}"
-    await MinIOService.upload_file("rag-bucket", object_name, file.file)
-    logger.info(f"Stored document {{doc_id}} to MinIO.")
+    await StorageService.upload_file("rag-bucket", object_name, file.file)
+    logger.info(f"Stored document {{doc_id}} to object storage.")
 
     # 2. Extract Text (Simulated text extraction for generated stub)
     content = (await file.read()).decode("utf-8", errors="ignore")
@@ -147,11 +169,11 @@ async def process_document(file: UploadFile, metadata: Dict[str, Any] = None) ->
         if metadata:
             chunk_meta.update(metadata)
             
-        await QdrantService.upsert("rag_documents", [{{"id": str(uuid.uuid4()), "vector": embedding, "payload": chunk_meta}}])
+        await {vdb_service}.upsert("rag_documents", [{{"id": str(uuid.uuid4()), "vector": embedding, "payload": chunk_meta}}])
         
     """
         if self.use_postgres:
-            template += """
+            template += f"""
     # 5. Sync metadata to Postgres
     from app.models.document_meta import DocumentMeta
     from app.db.session import async_session
@@ -162,7 +184,7 @@ async def process_document(file: UploadFile, metadata: Dict[str, Any] = None) ->
         await db.commit()
             """
             
-        template += """
+        template += f"""
     return doc_id
 
 async def query_rag(question: str, top_k: int = 3) -> str:
@@ -170,12 +192,12 @@ async def query_rag(question: str, top_k: int = 3) -> str:
     # 1. Embed question
     question_vector = await LLMGateway.generate_embedding(question)
     
-    # 2. Search Qdrant
-    results = await QdrantService.search("rag_documents", question_vector, limit=top_k)
+    # 2. Search Vector DB
+    results = await {vdb_service}.search("rag_documents", question_vector, limit=top_k)
     
     # 3. Construct prompt
     context = "\\n".join([r.payload.get("text", "") for r in results])
-    prompt = f"Context:\\n{context}\\n\\nQuestion:\\n{question}\\n\\nAnswer:"
+    prompt = f"Context:\\n{{context}}\\n\\nQuestion:\\n{{question}}\\n\\nAnswer:"
     
     # 4. Generate answer
     answer = await LLMGateway.generate_completion(prompt)

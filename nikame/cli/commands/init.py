@@ -15,6 +15,7 @@ import click
 from nikame.blueprint.engine import Blueprint, build_blueprint
 from nikame.codegen.base import CodegenContext
 from nikame.codegen.ml_gateway import MLGatewayCodegen
+from nikame.codegen.components.storage_service import StorageServiceCodegen
 from nikame.codegen.registry import (
     COMPONENT_REGISTRY,
     discover_codegen,
@@ -38,69 +39,9 @@ from nikame.utils.git import (
 from nikame.utils.github_client import GitHubClient
 from nikame.utils.logger import console
 
-# ──────────────────────────── Presets ────────────────────────────
+# ──────────────────────────── Registry Registry ────────────────────────────
 
-PRESETS: dict[str, dict[str, Any]] = {
-    "saas-starter": {
-        "name": "saas-starter",
-        "version": "1.0",
-        "description": "Production SaaS — FastAPI + Postgres + Redis + Keycloak + Stripe",
-        "environment": {"target": "local", "profile": "local"},
-        "api": {"framework": "fastapi", "workers": "auto"},
-        "databases": {"postgres": {"version": "16", "pgbouncer": True}},
-        "cache": {"provider": "redis"},
-        "auth": {"provider": "keycloak"},
-        "ci_cd": {"github_actions": True},
-        "features": ["auth", "stripe", "rate_limiting", "health_check"],
-    },
-    "mlops-rag": {
-        "name": "mlops-rag",
-        "version": "1.0",
-        "description": "MLOps RAG Stack — vLLM + Qdrant + Unstructured + Celery",
-        "environment": {"target": "local", "profile": "local"},
-        "api": {"framework": "fastapi"},
-        "databases": {"qdrant": {}},
-        "mlops": {
-            "models": [
-                {"name": "llm", "source": "huggingface", "model": "mistralai/Mistral-7B-v0.1", "serve_with": "vllm"}
-            ]
-        },
-        "ci_cd": {"github_actions": True},
-        "features": ["vector_search", "cron_jobs"],
-    },
-    "realtime-analytics": {
-        "name": "realtime-analytics",
-        "version": "1.0",
-        "description": "Real-time Analytics — RedPanda + ClickHouse + Grafana",
-        "environment": {"target": "local", "profile": "local"},
-        "messaging": {
-            "redpanda": {"brokers": 1, "topics": [{"name": "events", "partitions": 3}]}
-        },
-        "databases": {"clickhouse": {}},
-        "observability": {"stack": "full"},
-        "ci_cd": {"github_actions": True},
-        "features": ["pubsub"],
-    },
-    "api-gateway": {
-        "name": "api-gateway",
-        "version": "1.0",
-        "description": "Hardened API Gateway — Traefik + Let's Encrypt + OTel",
-        "environment": {"target": "local", "profile": "local"},
-        "gateway": {"provider": "traefik", "tls": {"enabled": True, "provider": "letsencrypt"}},
-        "api": {"tracing": {"enabled": True, "provider": "otel"}},
-        "ci_cd": {"github_actions": True},
-        "features": ["rate_limiting"],
-    },
-    "multi-tenant": {
-        "name": "multi-tenant",
-        "version": "1.0",
-        "description": "Multi-tenant K8s — Namespace Isolation + Sealed Secrets",
-        "environment": {"target": "kubernetes", "profile": "production", "namespace": "isolated"},
-        "security": {"secrets": {"provider": "sealed-secrets"}, "network_policy": {"provider": "cilium"}},
-        "ci_cd": {"github_actions": True},
-        "features": ["multi_tenancy"],
-    },
-}
+# Presets removed in favor of Template Registry (Part 2)
 
 
 def _generate_project(
@@ -135,6 +76,12 @@ def _generate_project(
     with console.status("[info]Resolving module dependencies...[/info]"):
         blueprint = build_blueprint(config)
 
+    temp_ctx = CodegenContext(
+        project_name=config.name,
+        active_modules=[m.NAME for m in blueprint.modules],
+        features=config.features or []
+    )
+
     # Step 2.5: Collect component wiring (imports, routers, etc.)
     # This must happen BEFORE scaffolding so the API module can use it.
     discover_codegen()
@@ -159,8 +106,8 @@ def _generate_project(
             except Exception as exc:
                 console.print(f"[warning]⚠ Could not extract wiring for '{feature_name}': {exc}[/warning]")
 
-    # Step 3: Set up file writer
-    writer = FileWriter(output_dir, dry_run=dry_run)
+    # Step 3: Set up file writer (buffered mode — Rules Engine validates before flush)
+    writer = FileWriter(output_dir, dry_run=dry_run, buffered=not dry_run)
 
     # Step 4: Write nikame.yaml (copy config)
     writer.write_yaml("nikame.yaml", config.model_dump())
@@ -183,41 +130,6 @@ def _generate_project(
     with console.status("[info]Generating application scaffolding...[/info]"):
         _write_scaffolding(blueprint, writer)
 
-    # Step 10: ML Gateway (NEW)
-    if config.mlops:
-        with console.status("[info]Generating ML Gateway...[/info]"):
-            MLGatewayCodegen(config).generate(output_dir)
-
-    # Step 11: Schema-Driven Codegen (NEW)
-    if config.models:
-        with console.status("[info]Generating Data Models and CRUD endpoints...[/info]"):
-            SchemaCodegen(config).generate(output_dir)
-
-    # Step 12: Advanced Components (NEW)
-    
-    ctx = CodegenContext(
-        project_name=config.name,
-        active_modules=[m.NAME for m in blueprint.modules],
-        features=config.features
-    )
-    
-
-    for comp_key in config.features:
-        comp_info = COMPONENT_REGISTRY.get(comp_key)
-        if comp_info and "class" in comp_info:
-            with console.status(f"[info]Generating {comp_info['name']}...[/info]"):
-                generator = comp_info["class"](ctx, config)
-                files = generator.generate()
-                # Ensure the app directory exists as a package
-                writer.write_file("app/__init__.py", "")
-                
-                for path, content in files:
-                    # Redirect 'app/' to 'app/' for unified build context
-                    if path.startswith("app/"):
-                        target_path = path
-                    else:
-                        target_path = path
-                    writer.write_file(target_path, content)
 
     # Step 10: Environment files
     _write_env_files(blueprint, writer)
@@ -244,10 +156,6 @@ def _generate_project(
             for rel_path, content in tf_files.items():
                 writer.write_file(f"infra/terraform/{rel_path}", content)
 
-    # Step 13: Codegen features (NEW)
-    if config.features:
-        with console.status("[info]Generating application features...[/info]"):
-            _generate_features(config, blueprint, writer)
 
     # Step 13.5: Matrix Engine (Integrations Layer)
     with console.status("[info]Executing Matrix Engine integrations...[/info]"):
@@ -291,10 +199,37 @@ def _generate_project(
             guide_content = guide_gen.generate()
             writer.write_file("GUIDE.md", guide_content)
 
+    # ━━━━━ Step 16: Auto-Wiring Engine ━━━━━
+    if writer.buffered and not dry_run:
+        from nikame.codegen.wiring.autowire import AutoWiringEngine
+        autowire = AutoWiringEngine()
+        writer.buffer, wiring_report = autowire.run(writer.buffer)
+
+    # ━━━━━ Step 17: Rules Engine Validation ━━━━━
+    if writer.buffered and not dry_run:
+        from nikame.codegen.rules import RulesEngine
+        rules_engine = RulesEngine()
+        writer.buffer, results = rules_engine.validate(writer.buffer)
+
+        # Check for unfixable P0 failures
+        p0_failures = [
+            v for r in results for v in r.violations
+            if v.severity == "P0" and not v.auto_fixable
+        ]
+        if p0_failures:
+            console.print("[bold red]Generation blocked by P0 rule violations.[/bold red]")
+            for f in p0_failures:
+                console.print(f"  [red]✗[/red] {f.file}: {f.message}")
+            raise SystemExit(1)
+
+        # Flush validated files to disk
+        writer.flush()
+    # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
     # Done!
     writer.print_summary()
 
-    # Step 15: GitHub Automation (NEW)
+    # Step 17: GitHub Automation
     if not dry_run:
         _handle_github_automation(config, output_dir)
 
@@ -464,7 +399,7 @@ def _write_env_files(
         "APP_NAME": blueprint.project_name,
         "APP_ENV": "local",
         "SECRET_KEY": "",
-        "CORS_ORIGINS": "*",
+        "CORS_ORIGINS": "http://localhost:3000",
         "POSTGRES_DB": "app",
         "POSTGRES_USER": "postgres",
         "POSTGRES_PASSWORD": "",
@@ -697,12 +632,6 @@ def _generate_github_actions(output_dir: Path) -> None:
     help="Path to nikame.yaml config file.",
 )
 @click.option(
-    "--preset", "-p",
-    type=click.Choice(list(PRESETS.keys())),
-    default=None,
-    help="Use a built-in preset (saas-starter, minimal).",
-)
-@click.option(
     "--output", "-o",
     type=click.Path(path_type=Path),
     default=Path("."),
@@ -728,7 +657,6 @@ def _generate_github_actions(output_dir: Path) -> None:
 def init(
     ctx: click.Context,
     config: Path | None,
-    preset: str | None,
     output: Path,
     dry_run: bool,
     no_interactive: bool,
@@ -740,17 +668,10 @@ def init(
     built-in preset. Supports --dry-run for previewing output.
     """
     try:
-        if config and preset:
-            console.print("[error]Cannot use both --config and --preset[/error]")
-            raise SystemExit(1)
-
-        if preset:
-            console.print(f"[info]Using preset:[/info] [module]{preset}[/module]")
-            nikame_config = load_config_from_dict(PRESETS[preset])
-        elif config:
+        if config:
             console.print(f"[info]Loading config:[/info] [path]{config}[/path]")
             nikame_config = load_config(config)
-            
+
             if not no_interactive:
                 from nikame.cli.wizard.interactive import _show_confirmation
                 action = _show_confirmation(nikame_config.model_dump())
@@ -758,21 +679,17 @@ def init(
                     console.print("[warning]Generation cancelled.[/warning]")
                     raise SystemExit(0)
                 elif action == "Edit":
-                    # If they want to edit, we should probably launch the wizard with these defaults
                     from nikame.cli.wizard.interactive import run_wizard
-                    # Note: We'd need to update run_wizard to accept defaults for better UX
-                    # For now, we'll just relaunch it
                     config_dict = run_wizard()
                     nikame_config = load_config_from_dict(config_dict)
         elif not no_interactive:
             # Launch wizard
-            from nikame.cli.wizard import run_wizard
+            from nikame.cli.wizard.interactive import run_wizard
             config_dict = run_wizard()
             nikame_config = load_config_from_dict(config_dict)
         else:
-            # Default to saas-starter if no-interactive is set but no config provided
-            console.print("[info]No config/preset and --no-interactive set, using saas-starter[/info]")
-            nikame_config = load_config_from_dict(PRESETS["saas-starter"])
+            console.print("[error]No config provided and --no-interactive set. Use --config or launch without --no-interactive.[/error]")
+            raise SystemExit(1)
 
         # CLI overrides
         if guide is not None:

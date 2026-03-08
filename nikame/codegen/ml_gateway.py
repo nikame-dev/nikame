@@ -12,26 +12,70 @@ from nikame.config.schema import NikameConfig
 from nikame.utils.file_writer import FileWriter
 
 
-class MLGatewayCodegen:
+from nikame.codegen.base import BaseCodegen, CodegenContext
+
+class MLGatewayCodegen(BaseCodegen):
     """Generates the ml-gateway service."""
+    NAME = "ml_gateway"
+    DESCRIPTION = "Unified interface for LLM completions and embeddings"
 
-    def __init__(self, config: NikameConfig) -> None:
-        self.config = config
+    def __init__(self, ctx: CodegenContext, config: NikameConfig) -> None:
+        super().__init__(ctx, config)
 
-    def generate(self, output_dir: Path) -> None:
+    @classmethod
+    def should_trigger(cls, active_modules: set[str], active_features: set[str]) -> bool:
+        """Trigger if the configuration has MLOps items."""
+        # Note: We need the full config to check this, so we'll check for ml_features or similar
+        # For now, we'll trigger if any LLM module is present
+        llm_modules = {"llamacpp", "ollama", "vllm", "tgi", "triton", "localai", "xinference", "airllm"}
+        return any(m in active_modules for m in llm_modules)
+
+    def generate(self) -> list[tuple[str, str]]:
         """Generate the model manager 'Glue' logic."""
-        if not self.config.mlops or not self.config.mlops.models:
-            return
+        if not self.config.mlops:
+            return []
 
-        writer = FileWriter(output_dir)
+        files = []
         
-        # 1. Generate model_manager.py
-        manager_content = self._get_model_manager_py()
-        writer.write_file("app/core/models/model_manager.py", manager_content)
-        writer.write_file("app/core/models/__init__.py", "")
+        # 1. Generate model_manager.py (if models configured)
+        if self.config.mlops.models:
+            manager_content = self._get_model_manager_py()
+            files.append(("app/core/models/model_manager.py", manager_content))
+            files.append(("app/core/models/__init__.py", ""))
 
-        # 2. Add dependencies to requirements.txt if needed
-        # (Actually init.py handles requirements aggregation from components/features)
+        # 2. Generate LLM Gateway service (always if mlops present)
+        gateway_content = self._get_llm_gateway_py()
+        files.append(("app/services/llm_gateway.py", gateway_content))
+        files.append(("app/services/__init__.py", ""))
+        
+        return files
+
+    def _get_llm_gateway_py(self) -> str:
+        """Generate the services/llm_gateway.py logic."""
+        return f'''"""
+NIKAME LLM Gateway.
+Unified interface for LLM completions and embeddings.
+"""
+import os
+import httpx
+from typing import Any, List, Optional
+
+class LLMGateway:
+    """Singleton gateway for all LLM interactions."""
+    
+    @classmethod
+    async def generate_completion(cls, prompt: str, **kwargs) -> str:
+        """Generate a text completion."""
+        # Simple implementation for generated stub
+        # In a real setup, this routes via model_manager
+        return "NIKAME Generated Response"
+
+    @classmethod
+    async def generate_embedding(cls, text: str) -> List[float]:
+        """Generate a vector embedding for the given text."""
+        # Return a dummy 384-dim vector (SBERT size)
+        return [0.1] * 384
+'''
 
     def _get_model_manager_py(self) -> str:
         """Generate the core/models/model_manager.py logic."""
@@ -87,4 +131,3 @@ class ModelManager:
 
 model_manager = ModelManager()
 '''
-
