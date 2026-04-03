@@ -5,12 +5,14 @@ pooling, and common extensions (pgvector, TimescaleDB, PostGIS, etc.).
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class PostgresModule(BaseModule):
     """PostgreSQL database module with optional pgBouncer pooling.
 
@@ -51,7 +53,8 @@ class PostgresModule(BaseModule):
         
         # Single instance case: Stick to official alpine image for simplicity
         if self.replicas == 1:
-            base_image = f"pgvector/pgvector:pg{self.version}" if getattr(self, "is_pgvector", False) else f"postgres:{self.version}-alpine"
+            raw_image = f"pgvector/pgvector:pg{self.version}" if getattr(self, "is_pgvector", False) else f"postgres:{self.version}-alpine"
+            base_image = self.resolve_image(raw_image)
             services: dict[str, Any] = {
                 "postgres": {
                     "image": base_image,

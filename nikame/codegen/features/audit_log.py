@@ -21,7 +21,7 @@ class AuditLogCodegen(BaseCodegen):
         active_modules = self.ctx.active_modules
         has_postgres = "postgres" in active_modules
 
-        middleware_py = """\\"\\"\\"Audit Log Middleware.\\"\\"\\"
+        middleware_py = '''"""Audit Log Middleware."""
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 import logging
@@ -33,14 +33,14 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         req_id = str(uuid4())
         logger.info(f"AUDIT [{req_id}] START: {request.method} {request.url.path}")
-        
+
         response = await call_next(request)
-        
+
         logger.info(f"AUDIT [{req_id}] END: {response.status_code}")
         return response
-"""
-        
-        session_hook_py = """\\"\\"\\"Postgres Session Audit Wiring.\\"\\"\\"
+'''
+
+        session_hook_py = '''"""Postgres Session Audit Wiring."""
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import event
 import logging
@@ -48,7 +48,7 @@ import logging
 logger = logging.getLogger("audit_db")
 
 def wire_audit_to_session(session: AsyncSession):
-    \\"\\"\\"Wires audit logging directly to the SQLAlchemy session.\\"\\"\\"
+    """Wires audit logging directly to the SQLAlchemy session."""
     @event.listens_for(session.sync_session, 'before_commit')
     def receive_before_commit(session):
         for obj in session.new:
@@ -57,7 +57,7 @@ def wire_audit_to_session(session: AsyncSession):
             logger.info(f"AUDIT DB: Updating {obj}")
         for obj in session.deleted:
             logger.info(f"AUDIT DB: Deleting {obj}")
-""" if has_postgres else ""
+''' if has_postgres else ""
 
         files = [
             ("app/core/audit_middleware.py", middleware_py),

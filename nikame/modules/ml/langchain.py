@@ -1,9 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class LangchainModule(BaseModule):
     """
     LangChain module for agentic workflows and LLM orchestration.
@@ -49,4 +50,3 @@ class LangchainModule(BaseModule):
             ]
         }
 
-register_module(LangchainModule)

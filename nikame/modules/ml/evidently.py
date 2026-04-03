@@ -1,13 +1,14 @@
 """Evidently AI module for ML Monitoring."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class EvidentlyModule(BaseModule):
     """Evidently AI module for data drift and ML model monitoring.
 
@@ -101,4 +102,3 @@ class EvidentlyModule(BaseModule):
         }
 
 
-register_module(EvidentlyModule)

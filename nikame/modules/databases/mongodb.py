@@ -1,12 +1,14 @@
 """MongoDB database module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class MongoDBModule(BaseModule):
     """MongoDB NoSQL database module."""
 

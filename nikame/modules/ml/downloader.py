@@ -1,8 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class ModelDownloaderModule(BaseModule):
     """
     One-time init job to download ML models from HuggingFace/Ollama.

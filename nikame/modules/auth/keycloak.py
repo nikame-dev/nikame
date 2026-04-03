@@ -4,12 +4,14 @@ Provides SSO, OAuth2/OIDC, social login, and multi-factor authentication.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class KeycloakModule(BaseModule):
     """Keycloak IAM module.
 

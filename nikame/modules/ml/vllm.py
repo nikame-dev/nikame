@@ -1,8 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class VLLMModule(BaseModule):
     """
     vLLM serving module for high-throughput LLM inference on NVIDIA GPUs.

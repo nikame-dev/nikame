@@ -5,12 +5,14 @@ recommends Dragonfly instead (25x memory efficiency).
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class RedisModule(BaseModule):
     """Redis database module with optional persistence.
 

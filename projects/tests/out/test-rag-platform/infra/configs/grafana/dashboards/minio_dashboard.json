@@ -1,0 +1,42 @@
+{
+  "title": "rag-platform \u2014 MinIO",
+  "uid": "nikame-minio",
+  "panels": [
+    {
+      "title": "Disk Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "minio_disk_storage_used_bytes"
+        }
+      ]
+    },
+    {
+      "title": "Objects Count",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "minio_bucket_objects_count"
+        }
+      ]
+    },
+    {
+      "title": "Requests/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(minio_http_requests_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Network I/O",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(minio_network_sent_bytes_total[5m])"
+        }
+      ]
+    }
+  ]
+}

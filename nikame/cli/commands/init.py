@@ -49,6 +49,7 @@ def _generate_project(
     output_dir: Path,
     *,
     dry_run: bool = False,
+    no_interactive: bool = False,
 ) -> None:
     """Run the full generation pipeline.
 
@@ -235,7 +236,7 @@ def _generate_project(
 
     # Step 17: GitHub Automation
     if not dry_run:
-        _handle_github_automation(config, output_dir)
+        _handle_github_automation(config, output_dir, no_interactive=no_interactive)
 
     if blueprint.warnings:
         console.print("\n[warning]⚠ Optimization suggestions:[/warning]")
@@ -528,10 +529,10 @@ def _generate_features(
                 console.print(f"[warning]Failed to auto-generate '{name}': {exc}[/warning]")
 
 
-def _handle_github_automation(config: NikameConfig, output_dir: Path) -> None:
+def _handle_github_automation(config: NikameConfig, output_dir: Path, no_interactive: bool = False) -> None:
     """Hardened post-generation GitHub automation flow."""
     token = credentials.get_github_token()
-    if not token:
+    if not token or no_interactive:
         return
 
     import anyio
@@ -674,6 +675,12 @@ def _generate_github_actions(output_dir: Path) -> None:
     default=None,
     help="Generate project-specific GUIDE.md (overrides config).",
 )
+@click.option(
+    "--registry-mirror",
+    type=str,
+    default="docker.io",
+    help="Container registry mirror to use (e.g. ghcr.io).",
+)
 @click.pass_context
 def init(
     ctx: click.Context,
@@ -682,6 +689,7 @@ def init(
     dry_run: bool,
     no_interactive: bool,
     guide: bool | None,
+    registry_mirror: str,
 ) -> None:
     """Initialize a new NIKAME project.
 
@@ -715,6 +723,8 @@ def init(
         # CLI overrides
         if guide is not None:
             nikame_config.generate_guide = guide
+        if registry_mirror != "docker.io":
+            nikame_config.registry.mirror = registry_mirror
 
         # Override output name if using preset
         output_dir = output / nikame_config.name if output == Path(".") else output
@@ -723,7 +733,7 @@ def init(
             console.print(f"[debug]API Framework: {nikame_config.api.framework}[/debug]")
         else:
             console.print("[error]No API found in config object[/error]")
-        _generate_project(nikame_config, output_dir, dry_run=dry_run)
+        _generate_project(nikame_config, output_dir, dry_run=dry_run, no_interactive=no_interactive)
 
         console.print(f"\n[success]✨ Project generated at:[/success] [path]{output_dir}[/path]")
         console.print(f"\n  cd {output_dir}")

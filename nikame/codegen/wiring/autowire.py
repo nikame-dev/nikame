@@ -25,6 +25,63 @@ from nikame.utils.logger import console, get_logger
 _log = get_logger("autowire")
 
 
+def _last_top_level_import_index(lines: list[str]) -> int:
+    """Return the line index of the last import in the module header.
+
+    Only scans the initial import block — never ``from x import y`` lines inside
+    functions (e.g. conditional imports in ``lifespan``), which would otherwise
+    steal middleware/router auto-import insertion.
+    """
+    stop = len(lines)
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped.startswith("# Setup logging"):
+            stop = i
+            break
+        if line.startswith("class ") and not line[:1].isspace():
+            stop = i
+            break
+        if line.startswith("@app.") or line.startswith("app = FastAPI"):
+            stop = i
+            break
+    last_idx = 0
+    for i in range(stop):
+        stripped = lines[i].strip()
+        if stripped.startswith("import ") or stripped.startswith("from "):
+            last_idx = i
+    return last_idx
+
+
+def _line_index_after_balanced_parens(lines: list[str], start_idx: int, anchor: str) -> int | None:
+    """Return the line index after the closing `)` that matches the `(` in `anchor`.
+
+    `anchor` must include the opening parenthesis of the call (e.g. ``FastAPI(``).
+    This avoids naive ``)`` scanning, which breaks on ``text(\"SELECT 1\")`` etc.
+    """
+    if start_idx >= len(lines):
+        return None
+    line = lines[start_idx]
+    pos = line.find(anchor)
+    if pos < 0:
+        return None
+    open_p = line.find("(", pos)
+    if open_p < 0:
+        return None
+    depth = 0
+    for j in range(start_idx, len(lines)):
+        text = lines[j]
+        if j == start_idx:
+            text = text[open_p:]
+        for ch in text:
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if depth == 0:
+                    return j + 1
+    return None
+
+
 # ─────────────────────── Data Classes ────────────────────────────
 
 @dataclass
@@ -128,12 +185,7 @@ def _router_wiring_pass(buffer: dict[str, str], report: WiringReport) -> dict[st
     # Wire the routers into main.py
     lines = main_content.splitlines()
 
-    # Find the last import line
-    last_import_idx = 0
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("import ") or stripped.startswith("from "):
-            last_import_idx = i
+    last_import_idx = _last_top_level_import_index(lines)
 
     # Find the router registration section
     router_marker = None
@@ -323,11 +375,7 @@ async def lifespan(app):
         # Insert imports and lifespan into main.py
         lines = main_content.splitlines()
 
-        # Add imports at the top
-        last_import = 0
-        for i, line in enumerate(lines):
-            if line.strip().startswith("import ") or line.strip().startswith("from "):
-                last_import = i
+        last_import = _last_top_level_import_index(lines)
         for imp in reversed(import_lines):
             if imp not in main_content:
                 lines.insert(last_import + 1, imp)
@@ -517,10 +565,7 @@ def _middleware_wiring_pass(buffer: dict[str, str], report: WiringReport) -> dic
 
     # Inject into main.py
     lines = main_content.splitlines()
-    last_import = 0
-    for i, line in enumerate(lines):
-        if line.strip().startswith("import ") or line.strip().startswith("from "):
-            last_import = i
+    last_import = _last_top_level_import_index(lines)
 
     # Build additions
     import_lines = []
@@ -545,21 +590,26 @@ def _middleware_wiring_pass(buffer: dict[str, str], report: WiringReport) -> dic
     for imp in reversed(import_lines):
         lines.insert(last_import + 1, imp)
 
+    # Nothing new to register on the app object
+    if not middleware_lines:
+        buffer[main_py] = "\n".join(lines)
+        return buffer
+
     # Insert middleware after app = FastAPI(...)
+    insert_at: int | None = None
     for i, line in enumerate(lines):
         if "app = FastAPI(" in line or "app=FastAPI(" in line:
-            # Find end of FastAPI() call (might be multi-line)
-            insert_at = i + 1
-            if ")" not in line:
-                while insert_at < len(lines) and ")" not in lines[insert_at]:
-                    insert_at += 1
-                insert_at += 1
-
-            lines.insert(insert_at, "")
-            lines.insert(insert_at + 1, "# Middleware (ordered: tracing → CORS → auth → rate_limit → logging)")
-            for j, reg in enumerate(middleware_lines):
-                lines.insert(insert_at + 2 + j, reg)
+            insert_at = _line_index_after_balanced_parens(lines, i, "FastAPI(")
             break
+
+    if insert_at is None:
+        buffer[main_py] = "\n".join(lines)
+        return buffer
+
+    lines.insert(insert_at, "")
+    lines.insert(insert_at + 1, "# Middleware (ordered: tracing → CORS → auth → rate_limit → logging)")
+    for j, reg in enumerate(middleware_lines):
+        lines.insert(insert_at + 2 + j, reg)
 
     buffer[main_py] = "\n".join(lines)
     return buffer

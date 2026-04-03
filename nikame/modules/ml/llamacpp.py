@@ -1,8 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class LlamaCppModule(BaseModule):
     """
     llama.cpp serving module for CPU and low-VRAM GPU inference using GGUF.

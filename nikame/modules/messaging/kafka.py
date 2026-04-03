@@ -1,6 +1,7 @@
 """Apache Kafka messaging module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 import json
@@ -8,6 +9,7 @@ import json
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class KafkaModule(BaseModule):
     """Apache Kafka module with KRaft mode."""
 

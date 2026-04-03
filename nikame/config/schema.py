@@ -10,6 +10,17 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator, ConfigDict
 
+# ──────────────────────────── Registry ────────────────────────────
+
+
+class RegistryConfig(BaseModel):
+    """Container registry configuration for image pulls."""
+
+    mirror: Literal["docker.io", "ghcr.io", "mirror.gcr.io", "quay.io", "ecr.aws"] = "docker.io"
+    proxy: str | None = None
+    use_only_mirrors: bool = False
+
+
 # ──────────────────────────── Environment ────────────────────────────
 
 
@@ -426,6 +437,7 @@ class NikameConfig(BaseModel):
     )
     features: list[str] = Field(default_factory=list)
     plugins: list[str] = Field(default_factory=list)
+    registry: RegistryConfig = Field(default_factory=RegistryConfig)
     generate_guide: bool = True
 
     @field_validator("name")

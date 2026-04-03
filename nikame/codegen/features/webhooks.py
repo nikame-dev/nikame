@@ -21,14 +21,13 @@ class WebhookCodegen(BaseCodegen):
         active_modules = self.ctx.active_modules
         has_messaging = any(m in ["redpanda", "kafka"] for m in active_modules)
 
-        kafka_import = "from core.messaging import kafka_service\\n" if has_messaging else ""
+        kafka_import = "from core.messaging import kafka_service\n" if has_messaging else ""
         kafka_publish = """
-    # Async publish webhook event to Kafka
-    if has_messaging:
-        await kafka_service.send_message("webhook.events", {"source": source, "payload": payload})
+        if has_messaging:
+            await kafka_service.send_message("webhook.events", {"source": source, "payload": payload})
 """ if has_messaging else ""
 
-        router_py = f"""\\"\\"\\"Webhook reception and routing.\\"\\"\\"
+        router_py = f'''"""Webhook reception and routing."""
 from fastapi import APIRouter, Request, HTTPException
 import logging
 {kafka_import}
@@ -39,16 +38,16 @@ has_messaging = {'True' if has_messaging else 'False'}
 
 @router.post("/{{source}}")
 async def receive_webhook(source: str, request: Request):
-    \\"\\"\\"Generic webhook reception endpoint.\\"\\"\\"
+    """Generic webhook reception endpoint."""
     try:
         payload = await request.json()
         logger.info(f"Received webhook from {{source}}")
-        {kafka_publish}
+{kafka_publish}
         return {{"status": "received", "source": source}}
     except Exception as e:
         logger.error(f"Webhook processing error for {{source}}: {{e}}")
         raise HTTPException(status_code=400, detail="Invalid payload")
-"""
+'''
 
         return [
             ("app/api/webhooks/router.py", router_py),

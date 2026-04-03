@@ -5,6 +5,7 @@ with uvicorn workers, health checks, and proper env var wiring.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 import json
@@ -14,6 +15,7 @@ import time
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class FastAPIModule(BaseModule):
     """FastAPI web framework module.
 
@@ -390,6 +392,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import settings
+import json
 import time
 import logging
 
@@ -910,7 +913,7 @@ temporal_client = TemporalClient()
             files.append(("app/core/temporal.py", temporal_py))
 
         if has_smtp:
-            smtp_py = """\\"\\"\\"SMTP email client.\\"\\"\\"
+            smtp_py = '''"""SMTP email client."""
 import aiosmtplib
 from email.message import EmailMessage
 from config import settings
@@ -932,11 +935,11 @@ class SMTPClient:
         )
 
 smtp_client = SMTPClient()
-"""
+'''
             files.append(("app/core/smtp.py", smtp_py))
 
         if has_ngrok:
-            tunnel_py = """\\"\\"\\"Ngrok tunnel starter for local dev.\\"\\"\\"
+            tunnel_py = '''"""Ngrok tunnel starter for local dev."""
 from pyngrok import ngrok
 from config import settings
 
@@ -945,7 +948,7 @@ async def start_tunnel():
         ngrok.set_auth_token(settings.NGROK_AUTHTOKEN)
     tunnel = ngrok.connect(8000)
     return tunnel.public_url
-"""
+'''
             files.append(("app/core/tunnel.py", tunnel_py))
 
         # 7. app/routers/health.py

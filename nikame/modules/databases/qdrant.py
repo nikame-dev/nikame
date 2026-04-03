@@ -1,12 +1,14 @@
 """Qdrant vector database module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class QdrantModule(BaseModule):
     """Qdrant vector similarity search engine module."""
 
@@ -26,7 +28,7 @@ class QdrantModule(BaseModule):
         """Generate Docker Compose service spec for Qdrant."""
         return {
             "qdrant": {
-                "image": f"qdrant/qdrant:{self.version}",
+                "image": self.resolve_image("qdrant/qdrant"),
                 "restart": "unless-stopped",
                 "ports": [
                     f"{self.ctx.host_port_map.get('qdrant', 6333)}:6333",

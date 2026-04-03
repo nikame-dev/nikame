@@ -77,12 +77,12 @@ def create_access_token(subject: str, expires_delta: timedelta):
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 """
 
-        kafka_import = "from core.messaging import kafka_service\\n" if has_messaging else ""
-        kafka_publish_register = """
+        kafka_imp = "from core.messaging import kafka_service\n" if has_messaging else ""
+        kafka_pub_reg = """
     if has_messaging:
         await kafka_service.send_message("user.events", {"event": "registered", "user_id": db_obj.id, "email": db_obj.email})""" if has_messaging else ""
         
-        kafka_publish_login = """
+        kafka_pub_login = """
     if has_messaging:
         await kafka_service.send_message("user.events", {"event": "logged_in", "user_id": user.id, "email": user.email})""" if has_messaging else ""
 
@@ -95,8 +95,7 @@ from core.database import get_db
 from . import schemas, models, security
 import logging
 
-{kafka_import}
-
+{kafka_imp}
 logger = logging.getLogger(__name__)
 router = APIRouter()
 has_messaging = {'True' if has_messaging else 'False'}
@@ -114,7 +113,7 @@ async def register(user_in: schemas.UserCreate, db: AsyncSession = Depends(get_d
     )
     db.add(db_obj)
     await db.commit()
-    await db.refresh(db_obj){kafka_publish_register}
+    await db.refresh(db_obj){kafka_pub_reg}
     return db_obj
 
 @router.post("/login", response_model=schemas.Token)
@@ -126,7 +125,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
         raise HTTPException(status_code=400, detail="Incorrect email or password")
     
     access_token_expires = timedelta(minutes=60)
-    token = security.create_access_token(user.id, expires_delta=access_token_expires){kafka_publish_login}
+    token = security.create_access_token(user.id, expires_delta=access_token_expires){kafka_pub_login}
     return {{"access_token": token, "token_type": "bearer"}}
 """
         return [
@@ -136,9 +135,9 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
             ("app/api/auth/router.py", router_py),
         ]
 
-    def guide_metadata(self) -> dict[str, Any]:
+    def guide_metadata(self) -> dict:
         """Auth-specific guide metadata."""
-        port = self.ctx.api_port
+        port = getattr(self.ctx, 'api_port', 8000)
         return {
             "api_examples": [
                 {

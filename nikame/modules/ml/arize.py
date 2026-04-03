@@ -1,13 +1,14 @@
 """Arize Phoenix module for LLM Observability."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class PhoenixModule(BaseModule):
     """Arize Phoenix module for LLM observability and evaluation.
 
@@ -94,4 +95,3 @@ class PhoenixModule(BaseModule):
         }
 
 
-register_module(PhoenixModule)

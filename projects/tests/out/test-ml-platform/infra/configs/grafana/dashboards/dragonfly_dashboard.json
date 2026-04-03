@@ -1,0 +1,42 @@
+{
+  "title": "ml-platform \u2014 Dragonfly",
+  "uid": "nikame-dragonfly",
+  "panels": [
+    {
+      "title": "Memory Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "dragonfly_memory_used_bytes"
+        }
+      ]
+    },
+    {
+      "title": "Connected Clients",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "dragonfly_connected_clients"
+        }
+      ]
+    },
+    {
+      "title": "Commands/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(dragonfly_commands_processed_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Cache Hit Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "dragonfly_keyspace_hits / (dragonfly_keyspace_hits + dragonfly_keyspace_misses)"
+        }
+      ]
+    }
+  ]
+}

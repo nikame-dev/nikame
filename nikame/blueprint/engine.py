@@ -464,6 +464,7 @@ def build_blueprint(config: NikameConfig) -> Blueprint:
         features=config.features,
         active_modules=list(sorted_names),
         host_port_map=host_port_map,
+        registry_mirror=config.registry.mirror,
     )
 
     # Step 7: Instantiate modules in sorted order

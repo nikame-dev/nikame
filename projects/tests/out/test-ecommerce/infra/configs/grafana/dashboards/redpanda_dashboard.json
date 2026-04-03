@@ -1,0 +1,42 @@
+{
+  "title": "ecommerce \u2014 RedPanda",
+  "uid": "nikame-redpanda",
+  "panels": [
+    {
+      "title": "Messages In/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(redpanda_kafka_request_bytes_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Consumer Lag",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "redpanda_kafka_consumer_group_lag"
+        }
+      ]
+    },
+    {
+      "title": "Partition Count",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "redpanda_kafka_partitions"
+        }
+      ]
+    },
+    {
+      "title": "Broker Disk Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "redpanda_storage_disk_used_bytes"
+        }
+      ]
+    }
+  ]
+}

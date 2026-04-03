@@ -1,13 +1,14 @@
 """AirLLM Model Serving module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class AirLLMModule(BaseModule):
     """AirLLM Model Serving module.
 
@@ -178,4 +179,3 @@ if __name__ == "__main__":
         }
 
 
-register_module(AirLLMModule)

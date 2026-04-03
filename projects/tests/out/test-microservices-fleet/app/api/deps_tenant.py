@@ -1,0 +1,16 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from fastapi import Header, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from app.db.session import get_db
+from app.models.multi_tenancy import Organization
+
+async def get_current_tenant(
+    x_org_id: int = Header(...),
+    db: AsyncSession = Depends(get_db)
+) -> Organization:
+    result = await db.execute(select(Organization).where(Organization.id == x_org_id))
+    org = result.scalar_one_or_none()
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org

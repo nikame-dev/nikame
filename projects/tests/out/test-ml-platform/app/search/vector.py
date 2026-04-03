@@ -1,0 +1,36 @@
+# NIKAME GENERATED — DO NOT EDIT DIRECTLY
+from qdrant_client import QdrantClient
+from qdrant_client.models import Distance, VectorParams, PointStruct
+from sentence_transformers import SentenceTransformer
+
+client = QdrantClient("http://qdrant:6333")
+model = SentenceTransformer('all-MiniLM-L6-v2')
+
+def get_collection_name(table_name: str):
+    return f"nikame_{table_name}"
+
+async def ensure_collection(collection_name: str, vector_size: int = 384):
+    collections = client.get_collections().collections
+    exists = any(c.name == collection_name for c in collections)
+    if not exists:
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=VectorParams(size=vector_size, distance=Distance.COSINE),
+        )
+
+async def upsert_vector(collection_name: str, row_id: str, text: str, payload: dict):
+    vector = model.encode(text).tolist()
+    client.upsert(
+        collection_name=collection_name,
+        points=[
+            PointStruct(id=row_id, vector=vector, payload=payload)
+        ]
+    )
+
+async def search_vector(collection_name: str, query_text: str, limit: int = 5):
+    query_vector = model.encode(query_text).tolist()
+    return client.search(
+        collection_name=collection_name,
+        query_vector=query_vector,
+        limit=limit
+    )

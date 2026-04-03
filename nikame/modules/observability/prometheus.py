@@ -5,12 +5,14 @@ Auto-discovers all NIKAME services for scraping.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class PrometheusModule(BaseModule):
     """Prometheus metrics and alerting module.
 

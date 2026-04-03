@@ -1,13 +1,14 @@
 """NVIDIA Triton Inference Server module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class TritonModule(BaseModule):
     """Triton Inference Server module.
 
@@ -120,4 +121,3 @@ class TritonModule(BaseModule):
         }
 
 
-register_module(TritonModule)

@@ -43,6 +43,7 @@ class ModuleContext:
     wiring: dict[str, Any] = field(default_factory=dict)
     active_modules: list[str] = field(default_factory=list)
     host_port_map: dict[str, int] = field(default_factory=dict)
+    registry_mirror: str = "docker.io"
 
 
 class BaseModule(ABC):
@@ -79,6 +80,26 @@ class BaseModule(ABC):
         self.config = config
         self.ctx = ctx
         self.version: str = config.get("version", self.DEFAULT_VERSION)
+
+    def resolve_image(self, image: str) -> str:
+        """Resolve the official image name against the registry mirror."""
+        if ":" not in image:
+            image = f"{image}:{self.version}"
+
+        mirror = self.ctx.registry_mirror
+        if mirror == "docker.io":
+            return image
+
+        # Handle well-known Docker Hub images by prefixing with mirror
+        # e.g. 'postgres:16' -> 'ghcr.io/postgres:16'
+        if "/" not in image:
+            return f"{mirror}/{image}"
+        
+        # If it's already a full path like 'docker.io/library/postgres', replace it
+        if image.startswith("docker.io/"):
+            return image.replace("docker.io", mirror)
+
+        return image
 
     def dependencies(self) -> list[str]:
         """Return list of module names this module requires."""

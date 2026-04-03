@@ -71,7 +71,7 @@ The Matrix Engine has automatically injected a cache-aside layer. Wrap any expen
 
     def _generate_cache_aside_py(self) -> str:
         tenant_prefix = 'f"{tenant_id}:" if tenant_id else ""' if self.is_multitenant else '""'
-        tenant_arg = "tenant_id: str = None, " if self.is_multitenant else ""
+        tenant_arg = ", tenant_id: str = None" if self.is_multitenant else ""
         
         return f"""import json
 import logging
@@ -85,7 +85,7 @@ logger = logging.getLogger(__name__)
 # Configured by MatrixEngine OptimizationProfile
 DEFAULT_TTL = {self.profile.cache_ttl_seconds}
 
-def cache_query({tenant_arg}prefix: str, ttl: int = DEFAULT_TTL):
+def cache_query(prefix: str{tenant_arg}, ttl: int = DEFAULT_TTL):
     \"\"\"Decorator that implements the cache-aside pattern.\"\"\"
     def decorator(func: Callable):
         @wraps(func)
@@ -118,7 +118,7 @@ def cache_query({tenant_arg}prefix: str, ttl: int = DEFAULT_TTL):
         return wrapper
     return decorator
 
-async def invalidate_cache({tenant_arg}prefix: str):
+async def invalidate_cache(prefix: str{tenant_arg}):
     \"\"\"Invalidate all keys matching the prefix pattern.\"\"\"
     tenant_str = {tenant_prefix}
     pattern = f"{{tenant_str}}{{prefix}}:*"

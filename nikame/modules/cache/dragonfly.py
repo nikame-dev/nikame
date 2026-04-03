@@ -6,12 +6,14 @@ the NIKAME smart default for cache workloads.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class DragonflyModule(BaseModule):
     """Dragonfly in-memory cache module.
 
@@ -40,7 +42,7 @@ class DragonflyModule(BaseModule):
     def compose_spec(self) -> dict[str, Any]:
         """Generate Docker Compose service spec for Dragonfly."""
         spec: dict[str, Any] = {
-            "image": f"docker.dragonflydb.io/dragonflydb/dragonfly:{self.version}",
+            "image": self.resolve_image("dragonflydb/dragonfly"),
             "restart": "unless-stopped",
             "command": f"--maxmemory={self.maxmemory} --cache_mode=true",
             "ports": [f"{self.ctx.host_port_map.get('dragonfly', 6379)}:6379"] if self.ctx.environment == "local" else [],

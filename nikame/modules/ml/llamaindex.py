@@ -1,9 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class LlamaIndexModule(BaseModule):
     """
     LlamaIndex module for data-augmented LLM applications.
@@ -26,4 +27,3 @@ class LlamaIndexModule(BaseModule):
     def k8s_manifests(self) -> list[dict[str, Any]]:
         return []
 
-register_module(LlamaIndexModule)

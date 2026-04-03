@@ -5,12 +5,14 @@ Includes the MinIO Console web UI for bucket management.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class MinIOModule(BaseModule):
     """MinIO S3-compatible object storage module.
 

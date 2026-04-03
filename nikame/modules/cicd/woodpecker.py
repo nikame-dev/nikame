@@ -1,12 +1,14 @@
 """Woodpecker CI module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class WoodpeckerModule(BaseModule):
     """Woodpecker CI module."""
 

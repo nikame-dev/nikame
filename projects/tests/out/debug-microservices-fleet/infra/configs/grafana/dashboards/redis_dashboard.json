@@ -1,0 +1,42 @@
+{
+  "title": "microservices-fleet \u2014 Redis",
+  "uid": "nikame-redis",
+  "panels": [
+    {
+      "title": "Memory Usage",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "redis_memory_used_bytes"
+        }
+      ]
+    },
+    {
+      "title": "Connected Clients",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "redis_connected_clients"
+        }
+      ]
+    },
+    {
+      "title": "Commands/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(redis_commands_processed_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Hit Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "redis_keyspace_hits_total / (redis_keyspace_hits_total + redis_keyspace_misses_total)"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+  "title": "data-pipeline \u2014 FastAPI",
+  "uid": "nikame-fastapi",
+  "panels": [
+    {
+      "title": "Request Rate",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{service=\"api\"}[5m])"
+        }
+      ]
+    },
+    {
+      "title": "p95 Latency",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{service=\"api\"}[5m]))"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(http_requests_total{service=\"api\",status=~\"5..\"}[5m]) / rate(http_requests_total{service=\"api\"}[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Active Connections",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "uvicorn_active_connections{service=\"api\"}"
+        }
+      ]
+    }
+  ]
+}

@@ -116,9 +116,9 @@ class RetryLogicRule(BaseRule):
     DESCRIPTION = "Enforce retry logic on external HTTP/service calls"
 
     _EXTERNAL_CALL_PATTERNS = [
-        re.compile(r'httpx\.\w+Client\s*\('),
-        re.compile(r'requests\.(get|post|put|delete|patch)\s*\('),
-        re.compile(r'aiohttp\.ClientSession\s*\('),
+        re.compile(r'httpx\.(?:get|post|put|delete|patch|request|Client|AsyncClient)\s*\('),
+        re.compile(r'requests\.(?:get|post|put|delete|patch|request)\s*\('),
+        re.compile(r'aiohttp\.(?:ClientSession|request)\s*\('),
     ]
 
     def check(self, file_buffer: dict[str, str]) -> RuleResult:
@@ -429,6 +429,44 @@ class KafkaDLQRule(BaseRule):
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Rule: Docker Registry Mirroring
+# ═══════════════════════════════════════════════════════════════════
+
+class DockerRegistryRule(BaseRule):
+    """Encourage using registry mirrors for common Docker Hub images to avoid timeouts."""
+
+    NAME = "docker_registry"
+    DESCRIPTION = "Check for potential Docker Hub connectivity issues"
+
+    _HUB_IMAGE_PATTERN = re.compile(
+        r'image:\s*(?!ghcr\.io|quay\.io|ecr\.aws|mirror\.gcr\.io|docker\.dragonflydb\.io)([\w/-]+):?([\w.-]*)'
+    )
+
+    def check(self, file_buffer: dict[str, str]) -> RuleResult:
+        violations = []
+
+        for path, content in file_buffer.items():
+            if not path.endswith("docker-compose.yml"):
+                continue
+
+            matches = self._HUB_IMAGE_PATTERN.findall(content)
+            if matches:
+                # If there are more than 3 Docker Hub images, suggest mirrors
+                if len(matches) > 3:
+                    violations.append(
+                        RuleViolation(
+                            rule=self.NAME,
+                            severity="P1",
+                            file=path,
+                            message=f"Detected multiple Docker Hub images ({len(matches)}). To avoid rate limits and timeouts, configure 'registry.mirror: ghcr.io' in nikame.yaml.",
+                            auto_fixable=False,
+                        )
+                    )
+
+        return RuleResult(rule_name=self.NAME, passed=len(violations) == 0, violations=violations)
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Registry: all production standards
 # ═══════════════════════════════════════════════════════════════════
 
@@ -440,4 +478,5 @@ PRODUCTION_RULES: list[BaseRule] = [
     PoolSizingRule(),
     CacheErrorHandlingRule(),
     KafkaDLQRule(),
+    DockerRegistryRule(),
 ]

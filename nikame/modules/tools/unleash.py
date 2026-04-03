@@ -4,11 +4,11 @@ Provides a managed feature flag server integrated with the project's infrastruct
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 @register_module
 class UnleashModule(BaseModule):

@@ -6,6 +6,7 @@ Registry and Console UI.
 """
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 import json
@@ -13,6 +14,7 @@ import json
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class RedPandaModule(BaseModule):
     """RedPanda streaming platform module.
 

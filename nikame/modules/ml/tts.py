@@ -1,13 +1,14 @@
 """Coqui TTS module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class TTSModule(BaseModule):
     """Coqui TTS API module.
 
@@ -110,4 +111,3 @@ class TTSModule(BaseModule):
         }
 
 
-register_module(TTSModule)

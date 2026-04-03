@@ -1,14 +1,15 @@
 """LangFuse LLM Tracing module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 import secrets
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class LangFuseModule(BaseModule):
     """LangFuse module for LLM Observability and Tracing.
 
@@ -117,4 +118,3 @@ class LangFuseModule(BaseModule):
         }
 
 
-register_module(LangFuseModule)

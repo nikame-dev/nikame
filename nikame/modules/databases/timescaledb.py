@@ -1,12 +1,14 @@
 """TimescaleDB time-series module (Postgres extension)."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class TimescaleDBModule(BaseModule):
     """TimescaleDB module (Postgres with timescale extension)."""
 

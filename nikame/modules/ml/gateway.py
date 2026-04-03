@@ -1,8 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class MLGatewayModule(BaseModule):
     """
     Unified ML Gateway using LiteLLM to provide an OpenAI-compatible API.

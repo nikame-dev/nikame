@@ -1,8 +1,10 @@
+from nikame.modules.registry import register_module
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
 
 
+@register_module
 class GPTCacheModule(BaseModule):
     """
     GPTCache semantic caching module for LLM responses.

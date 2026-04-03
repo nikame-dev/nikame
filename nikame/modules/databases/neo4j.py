@@ -1,12 +1,14 @@
 """Neo4j graph database module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule
 
 
+@register_module
 class Neo4jModule(BaseModule):
     """Neo4j graph database module."""
 

@@ -1,0 +1,42 @@
+{
+  "title": "data-pipeline \u2014 Prometheus",
+  "uid": "nikame-prometheus",
+  "panels": [
+    {
+      "title": "Scrape Targets",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "count(up)"
+        }
+      ]
+    },
+    {
+      "title": "Targets Down",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "count(up == 0)"
+        }
+      ]
+    },
+    {
+      "title": "Ingested Samples/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(prometheus_tsdb_head_samples_appended_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Storage Size",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "prometheus_tsdb_storage_blocks_bytes"
+        }
+      ]
+    }
+  ]
+}

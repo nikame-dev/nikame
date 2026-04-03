@@ -1,13 +1,14 @@
 """Milvus vector database module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class MilvusModule(BaseModule):
     """Milvus vector database module.
 
@@ -113,4 +114,3 @@ class MilvusModule(BaseModule):
         }
 
 
-register_module(MilvusModule)

@@ -1,0 +1,42 @@
+{
+  "title": "financial-platform \u2014 PostgreSQL",
+  "uid": "nikame-postgres",
+  "panels": [
+    {
+      "title": "Active Connections",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "pg_stat_activity_count"
+        }
+      ]
+    },
+    {
+      "title": "Transactions/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(pg_stat_database_xact_commit[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Cache Hit Ratio",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read)"
+        }
+      ]
+    },
+    {
+      "title": "Database Size",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "pg_database_size_bytes"
+        }
+      ]
+    }
+  ]
+}

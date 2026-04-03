@@ -1,0 +1,42 @@
+{
+  "title": "microservices-fleet \u2014 Traefik",
+  "uid": "nikame-traefik",
+  "panels": [
+    {
+      "title": "Requests/sec",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(traefik_entrypoint_requests_total[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rate(traefik_entrypoint_requests_total{code=~\"5..\"}[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Average Latency",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(traefik_entrypoint_request_duration_seconds_sum[5m]) / rate(traefik_entrypoint_request_duration_seconds_count[5m])"
+        }
+      ]
+    },
+    {
+      "title": "Active Connections",
+      "type": "gauge",
+      "targets": [
+        {
+          "expr": "traefik_entrypoint_open_connections"
+        }
+      ]
+    }
+  ]
+}

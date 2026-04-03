@@ -1,0 +1,15 @@
+{
+  "title": "gen-ai-studio \u2014 MLflow",
+  "uid": "nikame-mlflow",
+  "panels": [
+    {
+      "title": "Server Status",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "up{job='mlflow'}"
+        }
+      ]
+    }
+  ]
+}

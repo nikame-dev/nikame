@@ -1,3 +1,3 @@
 """NIKAME — Describe your infrastructure. NIKAME builds it."""
 
-__version__ = "0.5.2"
+__version__ = "1.3.0"

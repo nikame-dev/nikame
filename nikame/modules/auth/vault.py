@@ -1,13 +1,14 @@
 """HashiCorp Vault secret management module."""
 
 from __future__ import annotations
+from nikame.modules.registry import register_module
 
 from typing import Any
 
 from nikame.modules.base import BaseModule, ModuleContext
-from nikame.modules.registry import register_module
 
 
+@register_module
 class VaultModule(BaseModule):
     """HashiCorp Vault module."""
 
@@ -143,4 +144,3 @@ class VaultModule(BaseModule):
         """Expose VAULT_ADDR."""
         return {"VAULT_ADDR": f"http://vault.{self.ctx.namespace}.svc.cluster.local:8200", "VAULT_TOKEN": "root"}
 
-register_module(VaultModule)
