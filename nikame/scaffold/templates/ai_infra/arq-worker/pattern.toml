@@ -1,0 +1,21 @@
+name = "ARQ Worker"
+slug = "ai_infra/arq-worker"
+category = "ai_infra"
+tags = ["ai", "async", "jobs", "redis", "arq"]
+description = "ARQ (async Redis Queue) worker setup: job definition, enqueueing, worker entrypoint"
+difficulty = "advanced"
+deps = ["arq", "redis"]
+depends_on = ["core/settings"]
+
+[[files]]
+src = "worker.py"
+dest = "ai_infra/worker.py"
+merge = "replace"
+
+[[files]]
+src = "service.py"
+dest = "ai_infra/worker_service.py"
+merge = "replace"
+
+template_vars = ["REDIS_URL"]
+related = ["ai_infra/async-job-webhook"]

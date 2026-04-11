@@ -1,0 +1,16 @@
+name = "Ollama Client"
+slug = "ai_infra/ollama-client"
+category = "ai_infra"
+tags = ["ai", "ollama", "local", "inference", "llm"]
+description = "Ollama client with image/vision support and modelfile helper"
+difficulty = "beginner"
+deps = ["ollama", "fastapi"]
+depends_on = []
+
+[[files]]
+src = "client.py"
+dest = "ai_infra/ollama_client.py"
+merge = "replace"
+
+template_vars = ["OLLAMA_HOST"]
+related = []

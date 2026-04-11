@@ -1,0 +1,21 @@
+name = "Idempotent Webhook Handler"
+slug = "logic/webhook-handler"
+category = "logic"
+tags = ["webhook", "stripe", "razorpay", "idempotency", "security"]
+description = "Secure, idempotent webhook listener with signature verification and event logging"
+difficulty = "advanced"
+deps = ["redis", "cryptography"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "handler.py"
+dest = "logic/webhooks.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/webhooks.py"
+merge = "replace"
+
+template_vars = ["WEBHOOK_SECRET"]
+related = ["tasks/celery-redis-docker"]

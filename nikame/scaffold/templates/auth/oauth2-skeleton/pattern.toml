@@ -1,0 +1,21 @@
+name = "OAuth2 Flow Skeleton"
+slug = "auth/oauth2-skeleton"
+category = "auth"
+tags = ["auth", "oauth2", "sso", "security"]
+description = "OAuth2 authorization code flow scaffold (Google/GitHub), token exchange"
+difficulty = "advanced"
+deps = ["httpx", "fastapi"]
+depends_on = ["auth/jwt", "core/error-handlers"]
+
+[[files]]
+src = "oauth2.py"
+dest = "auth/oauth2.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/oauth2.py"
+merge = "replace"
+
+template_vars = ["GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "OAUTH_CALLBACK_URL"]
+related = ["auth/jwt"]

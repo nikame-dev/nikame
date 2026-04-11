@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: langfuse
+  namespace: local
+  labels:
+    app: langfuse
+    nikame.module: langfuse
+spec:
+  replicas: {{ .Values.langfuse.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: langfuse
+  template:
+    metadata:
+      labels:
+        app: langfuse
+    spec:
+      serviceAccountName: langfuse
+      containers:
+      - name: langfuse
+        image: ghcr.io/langfuse/langfuse:2
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: NEXTAUTH_URL
+          value: http://localhost:3000
+        - name: NEXTAUTH_SECRET
+          value: langfuse-secret-placeholder
+        - name: SALT
+          value: langfuse-salt-placeholder
+        - name: DATABASE_URL
+          value: $(DATABASE_URL)
+        - name: TELEMETRY_ENABLED
+          value: 'false'
+        - name: NODE_ENV
+          value: production

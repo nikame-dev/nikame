@@ -1,0 +1,11 @@
+name = "Standard Response Models"
+category = "core"
+tags = ["core", "response", "json", "envelope"]
+description = "Standardised API response envelope (data, error, meta)."
+difficulty = "beginner"
+deps = ["pydantic", "fastapi"]
+depends_on = []
+files = [
+  { src = "response.py", dest = "core/response.py", merge = "replace" },
+]
+template_vars = []

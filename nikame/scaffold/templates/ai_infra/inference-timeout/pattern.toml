@@ -1,0 +1,16 @@
+name = "Inference Timeout"
+slug = "ai_infra/inference-timeout"
+category = "ai_infra"
+tags = ["ai", "reliability", "timeout", "retry", "tenacity"]
+description = "Reliability wrapper: asyncio.wait_for + tenacity retries with exponential backoff"
+difficulty = "advanced"
+deps = ["tenacity", "fastapi"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "reliability.py"
+dest = "ai_infra/reliability.py"
+merge = "replace"
+
+template_vars = []
+related = ["ai_infra/single-inference"]

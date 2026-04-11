@@ -1,0 +1,16 @@
+name = "ONNX Runtime Loader"
+slug = "ai_infra/onnx-runtime-loader"
+category = "ai_infra"
+tags = ["ai", "onnx", "performance", "inference", "cpu"]
+description = "ONNX Runtime session manager: optimized CPU/GPU inference, graph optimization"
+difficulty = "advanced"
+deps = ["onnxruntime"]
+depends_on = ["ai_infra/model-loader"]
+
+[[files]]
+src = "loader.py"
+dest = "ai_infra/onnx_loader.py"
+merge = "replace"
+
+template_vars = ["ONNX_MODEL_PATH"]
+related = []

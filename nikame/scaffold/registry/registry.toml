@@ -1,0 +1,7 @@
+[name]
+name = "fastcheat"
+version = "1.0.0"
+description = "Master registry index of all fastcheat patterns."
+
+# The actual pattern index is dynamically built by scanning templates/**/pattern.toml files.
+# This file serves as the root marker for the repository.

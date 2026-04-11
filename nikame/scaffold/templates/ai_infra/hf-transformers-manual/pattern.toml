@@ -1,0 +1,16 @@
+name = "HF Transformers Manual"
+slug = "ai_infra/hf-transformers-manual"
+category = "ai_infra"
+tags = ["ai", "huggingface", "transformers", "manual", "custom"]
+description = "Manual AutoModel + AutoTokenizer pattern for custom generation control"
+difficulty = "advanced"
+deps = ["transformers", "torch"]
+depends_on = ["ai_infra/model-loader"]
+
+[[files]]
+src = "manual.py"
+dest = "ai_infra/hf_manual.py"
+merge = "replace"
+
+template_vars = ["HF_MODEL_NAME"]
+related = ["ai_infra/hf-pipeline"]

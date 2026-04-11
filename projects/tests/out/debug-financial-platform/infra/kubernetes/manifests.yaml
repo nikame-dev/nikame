@@ -1,0 +1,506 @@
+---
+# ResourceQuota: compute-resources
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+  namespace: local
+spec:
+  hard:
+    requests.cpu: '4'
+    requests.memory: 8Gi
+    limits.cpu: '8'
+    limits.memory: 16Gi
+
+---
+# NetworkPolicy: postgres
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: local
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: worker
+  - from:
+    - podSelector:
+        matchLabels:
+          app: pgbouncer
+
+---
+# ServiceAccount: postgres
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres
+  namespace: local
+  labels:
+    app: postgres
+
+---
+# Service: prometheus
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: local
+spec:
+  selector:
+    app: prometheus
+  ports:
+  - port: 9090
+    targetPort: 9090
+
+---
+# Service: grafana
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: local
+spec:
+  selector:
+    app: grafana
+  ports:
+  - port: 3000
+    targetPort: 3000
+
+---
+# Service: redpanda
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: local
+spec:
+  selector:
+    app: redpanda
+  ports:
+  - port: 9092
+    targetPort: 9092
+    name: kafka
+  - port: 8081
+    targetPort: 8081
+    name: schema-registry
+  clusterIP: None
+
+---
+# Service: postgres
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: local
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  clusterIP: None
+
+---
+# Service: pgbouncer
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: local
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+  - port: 5432
+    targetPort: 6432
+
+---
+# StatefulSet: redpanda
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+  namespace: local
+spec:
+  serviceName: redpanda
+  replicas: 3
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+    spec:
+      containers:
+      - name: redpanda
+        image: redpandadata/redpanda:latest
+        ports:
+        - containerPort: 9092
+          name: kafka
+        - containerPort: 8081
+          name: schema-registry
+        - containerPort: 9644
+          name: admin
+        resources:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+
+---
+# StatefulSet: mongodb
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: local
+spec:
+  serviceName: mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: admin
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secrets
+              key: password
+
+---
+# StatefulSet: postgres
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: local
+  labels:
+    app: postgres
+    nikame.module: postgres
+spec:
+  serviceName: postgres
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      serviceAccountName: postgres
+      containers:
+      - name: postgres
+        image: public.ecr.aws/bitnami/postgresql:16.2.0
+        ports:
+        - containerPort: 5432
+        envFrom:
+        - secretRef:
+            name: postgres-secret
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# Deployment: prometheus
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      serviceAccountName: prometheus
+      containers:
+      - name: prometheus
+        image: prom/prometheus:v2.49.0
+        ports:
+        - containerPort: 9090
+        volumeMounts:
+        - name: config
+          mountPath: /etc/prometheus
+        - name: data
+          mountPath: /prometheus
+        resources:
+          requests:
+            cpu: 250m
+            memory: 1Gi
+          limits:
+            cpu: 1000m
+            memory: 4Gi
+      volumes:
+      - name: config
+        configMap:
+          name: prometheus-config
+      - name: data
+        persistentVolumeClaim:
+          claimName: prometheus-pvc
+
+---
+# Deployment: otel-collector
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: otel-collector
+  namespace: local
+spec:
+  selector:
+    matchLabels:
+      app: otel-collector
+  template:
+    metadata:
+      labels:
+        app: otel-collector
+    spec:
+      containers:
+      - name: otel-collector
+        image: otel/opentelemetry-collector-contrib:0.96.0
+        ports:
+        - containerPort: 4317
+        volumeMounts:
+        - name: config
+          mountPath: /etc/otel-collector-config.yaml
+          subPath: otel-collector-config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: otel-collector-config
+
+---
+# Deployment: tempo
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tempo
+  namespace: local
+spec:
+  selector:
+    matchLabels:
+      app: tempo
+  template:
+    metadata:
+      labels:
+        app: tempo
+    spec:
+      containers:
+      - name: tempo
+        image: grafana/tempo:2.3.0
+        ports:
+        - containerPort: 3200
+        volumeMounts:
+        - name: config
+          mountPath: /etc/tempo.yaml
+          subPath: tempo.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: tempo-config
+
+---
+# Deployment: loki
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loki
+  namespace: local
+spec:
+  selector:
+    matchLabels:
+      app: loki
+  template:
+    metadata:
+      labels:
+        app: loki
+    spec:
+      containers:
+      - name: loki
+        image: grafana/loki:2.9.0
+        ports:
+        - containerPort: 3100
+        volumeMounts:
+        - name: config
+          mountPath: /etc/loki/local-config.yaml
+          subPath: local-config.yaml
+      volumes:
+      - name: config
+        configMap:
+          name: loki-config
+
+---
+# Deployment: grafana
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: local
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:10.2.0
+        ports:
+        - containerPort: 3000
+        envFrom:
+        - secretRef:
+            name: grafana-secret
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/grafana
+        - name: dashboards
+          mountPath: /var/lib/grafana/dashboards
+        - name: provisioning
+          mountPath: /etc/grafana/provisioning
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: grafana-pvc
+      - name: dashboards
+        configMap:
+          name: grafana-dashboards
+      - name: provisioning
+        configMap:
+          name: grafana-provisioning
+
+---
+# Deployment: pgbouncer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: local
+  labels:
+    app: pgbouncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      serviceAccountName: postgres
+      containers:
+      - name: pgbouncer
+        image: public.ecr.aws/bitnami/pgbouncer:1.23.1
+        ports:
+        - containerPort: 6432
+        envFrom:
+        - secretRef:
+            name: postgres-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+---
+# Job: postgres-migration
+apiVersion: v1
+kind: Job
+metadata:
+  name: postgres-migration
+  namespace: local
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: financial-platform-api:latest
+        command:
+        - alembic
+        - upgrade
+        - head
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://postgres@postgres:5432/financial-platform
+      restartPolicy: OnFailure
+  backoffLimit: 4
+
+---
+# PodDisruptionBudget: postgres
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres
+  namespace: local
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres

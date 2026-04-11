@@ -1,0 +1,16 @@
+name = "Offset Pagination"
+slug = "database/offset-pagination"
+category = "database"
+tags = ["database", "sqlalchemy", "pagination", "offset"]
+description = "Offset/limit pagination with total count and page metadata"
+difficulty = "beginner"
+deps = ["sqlalchemy", "pydantic", "fastapi"]
+depends_on = []
+
+[[files]]
+src = "pagination.py"
+dest = "database/offset_pagination.py"
+merge = "replace"
+
+template_vars = []
+related = ["database/cursor-pagination"]

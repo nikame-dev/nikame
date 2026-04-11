@@ -1,0 +1,29 @@
+version: '1.0'
+name: data-pipeline
+description: High-throughput data streaming and batch processing.
+project:
+  type: data_pipeline
+  scale: large
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  clickhouse: {}
+messaging:
+  redpanda: {}
+storage:
+  provider: minio
+mlops:
+  orchestration:
+    provider: prefect
+  tracking:
+    provider: mlflow
+  monitoring:
+  - evidently
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

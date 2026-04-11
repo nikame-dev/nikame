@@ -1,0 +1,16 @@
+name = "Model Loader"
+slug = "ai_infra/model-loader"
+category = "ai_infra"
+tags = ["ai", "ml", "gpu", "lifespan", "startup"]
+description = "Load ML model at startup via lifespan, store in app.state, thread-safe access"
+difficulty = "intermediate"
+deps = ["fastapi", "torch"]
+depends_on = ["core/lifespan"]
+
+[[files]]
+src = "loader.py"
+dest = "ai_infra/model_loader.py"
+merge = "replace"
+
+template_vars = ["MODEL_ID"]
+related = ["ai_infra/gpu-semaphore", "ai_infra/model-warmup"]

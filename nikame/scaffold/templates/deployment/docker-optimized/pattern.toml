@@ -1,0 +1,21 @@
+name = "Optimized Dockerfile"
+slug = "deployment/docker-optimized"
+category = "deployment"
+tags = ["deployment", "docker", "production", "optimization"]
+description = "Multi-stage Dockerfile: non-root user, layer caching, .dockerignore, python-slim"
+difficulty = "intermediate"
+deps = []
+depends_on = []
+
+[[files]]
+src = "Dockerfile"
+dest = "Dockerfile"
+merge = "replace"
+
+[[files]]
+src = "dockerignore"
+dest = ".dockerignore"
+merge = "replace"
+
+template_vars = []
+related = []

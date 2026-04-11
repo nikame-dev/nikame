@@ -1,0 +1,21 @@
+name = "Async Client Fixtures"
+slug = "testing/async-client"
+category = "testing"
+tags = ["testing", "pytest", "async", "httpx"]
+description = "FastAPI async testing: httpx.AsyncClient fixtures, lifespan handling, auth mocking"
+difficulty = "beginner"
+deps = ["pytest", "pytest-asyncio", "httpx"]
+depends_on = []
+
+[[files]]
+src = "conftest.py"
+dest = "tests/conftest.py"
+merge = "replace"
+
+[[files]]
+src = "test_example.py"
+dest = "tests/test_api.py"
+merge = "replace"
+
+template_vars = []
+related = ["testing/database-fixtures"]

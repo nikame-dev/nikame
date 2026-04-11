@@ -1,0 +1,21 @@
+name = "Alembic Scaffold"
+slug = "database/alembic-scaffold"
+category = "database"
+tags = ["database", "sqlalchemy", "alembic", "migrations"]
+description = "Full Alembic setup: env.py with async engine, migration script template"
+difficulty = "intermediate"
+deps = ["alembic", "sqlalchemy", "asyncpg"]
+depends_on = ["database/async-session"]
+
+[[files]]
+src = "env.py"
+dest = "alembic/env.py"
+merge = "replace"
+
+[[files]]
+src = "script.py.mako"
+dest = "alembic/script.py.mako"
+merge = "replace"
+
+template_vars = []
+related = []

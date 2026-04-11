@@ -1,0 +1,12 @@
+name = "App Settings"
+category = "core"
+tags = ["core", "config", "pydantic-settings", "env"]
+description = "pydantic-settings config management with environment variables."
+difficulty = "beginner"
+deps = ["pydantic", "pydantic-settings"]
+depends_on = []
+files = [
+  { src = "settings.py", dest = "core/settings.py", merge = "replace" },
+  { src = ".env.example", dest = ".env.example", merge = "replace" },
+]
+template_vars = []

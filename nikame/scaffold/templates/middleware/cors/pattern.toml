@@ -1,0 +1,16 @@
+name = "Environment CORS Pipeline"
+slug = "middleware/cors"
+category = "middleware"
+tags = ["middleware", "cors", "security"]
+description = "Dev vs prod CORS config, origin whitelist from settings"
+difficulty = "beginner"
+deps = ["fastapi", "pydantic"]
+depends_on = []
+
+[[files]]
+src = "cors.py"
+dest = "middleware/cors.py"
+merge = "replace"
+
+template_vars = []
+related = []

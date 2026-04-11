@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evidently
+  namespace: local
+  labels:
+    app: evidently
+    nikame.module: evidently
+spec:
+  replicas: {{ .Values.evidently.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: evidently
+  template:
+    metadata:
+      labels:
+        app: evidently
+    spec:
+      serviceAccountName: evidently
+      containers:
+      - name: evidently
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        command:
+        - bash
+        - -c
+        - pip install evidently && evidently ui --port 8000 --host 0.0.0.0 --workspace
+          /app/workspace
+        volumeMounts:
+        - name: data
+          mountPath: /app/workspace
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: evidently-data

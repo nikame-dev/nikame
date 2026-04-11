@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Job
+metadata:
+  name: postgres-migration
+  namespace: local
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: rag-platform-api:latest
+        command:
+        - alembic
+        - upgrade
+        - head
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://postgres@postgres:5432/rag-platform
+      restartPolicy: OnFailure
+  backoffLimit: 4

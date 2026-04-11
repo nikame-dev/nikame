@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefect
+  namespace: local
+  labels:
+    app: prefect
+    nikame.module: prefect
+spec:
+  replicas: {{ .Values.prefect.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: prefect
+  template:
+    metadata:
+      labels:
+        app: prefect
+    spec:
+      serviceAccountName: prefect
+      containers:
+      - name: prefect
+        image: prefecthq/prefect:2-python3.11
+        ports:
+        - containerPort: 4200
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: PREFECT_SERVER_API_HOST
+          value: 0.0.0.0
+        - name: PREFECT_API_URL
+          value: $(PREFECT_API_URL)
+        - name: PREFECT_API_DATABASE_CONNECTION_URL
+          value: $(DATABASE_URL)
+        command:
+        - prefect
+        - server
+        - start
+        - --host
+        - 0.0.0.0

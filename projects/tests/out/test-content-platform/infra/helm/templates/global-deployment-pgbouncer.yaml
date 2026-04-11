@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: local
+  labels:
+    app: pgbouncer
+spec:
+  replicas: {{ .Values.global.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      serviceAccountName: postgres
+      containers:
+      - name: pgbouncer
+        image: public.ecr.aws/bitnami/pgbouncer:1.23.1
+        ports:
+        - containerPort: 6432
+        envFrom:
+        - secretRef:
+            name: postgres-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi

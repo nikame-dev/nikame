@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bentoml
+  namespace: production
+  labels:
+    app: bentoml
+    nikame.module: bentoml
+spec:
+  replicas: {{ .Values.bentoml.replicaCount | default 1 }}
+  selector:
+    matchLabels:
+      app: bentoml
+  template:
+    metadata:
+      labels:
+        app: bentoml
+    spec:
+      serviceAccountName: bentoml
+      containers:
+      - name: bentoml
+        image: my_bento:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi

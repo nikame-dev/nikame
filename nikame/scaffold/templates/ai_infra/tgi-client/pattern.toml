@@ -1,0 +1,16 @@
+name = "TGI Client"
+slug = "ai_infra/tgi-client"
+category = "ai_infra"
+tags = ["ai", "tgi", "huggingface", "inference", "llm"]
+description = "Text-Generation-Inference (HF) client: stream support, custom stop sequences"
+difficulty = "intermediate"
+deps = ["text-generation", "fastapi"]
+depends_on = []
+
+[[files]]
+src = "client.py"
+dest = "ai_infra/tgi_client.py"
+merge = "replace"
+
+template_vars = ["TGI_URL"]
+related = ["ai_infra/hf-pipeline"]

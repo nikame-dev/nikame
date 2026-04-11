@@ -1,0 +1,21 @@
+name = "LLM Proxy"
+slug = "ai_infra/llm-proxy"
+category = "ai_infra"
+tags = ["ai", "proxy", "openai", "anthropic", "streaming"]
+description = "Full LLM proxy: pass-through, streaming, logging, token counting"
+difficulty = "advanced"
+deps = ["fastapi", "httpx", "tiktoken"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "proxy.py"
+dest = "ai_infra/llm_proxy.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/llm_proxy.py"
+merge = "replace"
+
+template_vars = ["OPENAI_API_KEY", "OPENAI_BASE_URL"]
+related = ["streaming/llm-stream"]

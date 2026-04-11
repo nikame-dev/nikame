@@ -1,0 +1,11 @@
+name = "App Factory"
+category = "routing"
+tags = ["routing", "app-factory", "startup"]
+description = "FastAPI create_app() factory pattern for environment-specific setups."
+difficulty = "intermediate"
+deps = ["fastapi", "uvicorn"]
+depends_on = ["core/settings"]
+files = [
+  { src = "factory.py", dest = "main.py", merge = "replace" },
+]
+template_vars = []

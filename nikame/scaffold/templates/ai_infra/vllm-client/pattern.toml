@@ -1,0 +1,16 @@
+name = "vLLM Client"
+slug = "ai_infra/vllm-client"
+category = "ai_infra"
+tags = ["ai", "vllm", "inference", "llm", "client"]
+description = "vLLM OpenAI-compatible client with specialized streaming and error recovery"
+difficulty = "intermediate"
+deps = ["openai", "fastapi"]
+depends_on = []
+
+[[files]]
+src = "client.py"
+dest = "ai_infra/vllm_client.py"
+merge = "replace"
+
+template_vars = ["VLLM_URL", "VLLM_API_KEY"]
+related = ["ai_infra/llm-proxy"]

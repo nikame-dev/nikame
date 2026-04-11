@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+.git
+.gitignore
+.dockerignore
+.pytest_cache
+tests
+docs
+*.md
+.env
+.fastcheat

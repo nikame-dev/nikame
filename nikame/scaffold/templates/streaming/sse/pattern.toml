@@ -1,0 +1,21 @@
+name = "Server-Sent Events"
+slug = "streaming/sse"
+category = "streaming"
+tags = ["streaming", "sse", "events", "realtime"]
+description = "Server-Sent Events with sse-starlette: event types, retry headers, heartbeat"
+difficulty = "intermediate"
+deps = ["sse-starlette", "fastapi", "asyncio"]
+depends_on = []
+
+[[files]]
+src = "sse.py"
+dest = "streaming/sse.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/sse.py"
+merge = "replace"
+
+template_vars = []
+related = ["streaming/websocket-manager"]

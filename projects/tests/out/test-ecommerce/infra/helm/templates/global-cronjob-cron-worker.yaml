@@ -1,0 +1,24 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cron-worker
+  namespace: ecommerce
+spec:
+  schedule: '*/5 * * * *'
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: cron-worker
+            image: ecommerce-api:latest
+            command:
+            - celery
+            - -A
+            - app.worker
+            - worker
+            - --loglevel=info
+            envFrom:
+            - configMapRef:
+                name: api-config
+          restartPolicy: OnFailure

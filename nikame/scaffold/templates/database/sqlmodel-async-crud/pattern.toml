@@ -1,0 +1,26 @@
+name = "SQLModel Async CRUD"
+slug = "database/sqlmodel-async-crud"
+category = "database"
+tags = ["database", "sqlmodel", "sqlalchemy", "async", "crud"]
+description = "Advanced SQLModel implementation with async session management and generic CRUD repository"
+difficulty = "intermediate"
+deps = ["sqlmodel", "aiosqlite", "asyncpg"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "db.py"
+dest = "database/core.py"
+merge = "replace"
+
+[[files]]
+src = "base_repository.py"
+dest = "database/repository.py"
+merge = "replace"
+
+[[files]]
+src = "schemas.py"
+dest = "schemas/base.py"
+merge = "replace"
+
+template_vars = ["DATABASE_URL"]
+related = ["database/repository", "database/unit-of-work"]

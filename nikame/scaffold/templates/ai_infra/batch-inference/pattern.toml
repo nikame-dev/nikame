@@ -1,0 +1,16 @@
+name = "Batch Inference"
+slug = "ai_infra/batch-inference"
+category = "ai_infra"
+tags = ["ai", "inference", "batching", "performance"]
+description = "Dynamic batching using asyncio.Queue for high-throughput inference"
+difficulty = "advanced"
+deps = ["fastapi", "anyio"]
+depends_on = ["ai_infra/model-loader"]
+
+[[files]]
+src = "batcher.py"
+dest = "ai_infra/batch_inference.py"
+merge = "replace"
+
+template_vars = ["BATCH_MAX_SIZE", "BATCH_WAIT_MS"]
+related = ["ai_infra/single-inference"]

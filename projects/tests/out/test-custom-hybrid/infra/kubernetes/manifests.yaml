@@ -1,0 +1,922 @@
+---
+# ResourceQuota: compute-resources
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: compute-resources
+  namespace: production
+spec:
+  hard:
+    requests.cpu: '4'
+    requests.memory: 8Gi
+    limits.cpu: '8'
+    limits.memory: 16Gi
+
+---
+# NetworkPolicy: postgres
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: postgres
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: worker
+  - from:
+    - podSelector:
+        matchLabels:
+          app: pgbouncer
+
+---
+# NetworkPolicy: minio
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: minio
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: minio
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: api
+  - from:
+    - podSelector:
+        matchLabels:
+          app: worker
+
+---
+# NetworkPolicy: api
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api
+  namespace: production
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: ingress-nginx
+  - from:
+    - podSelector:
+        matchLabels:
+          app: traefik
+
+---
+# ServiceAccount: postgres
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: postgres
+  namespace: production
+  labels:
+    app: postgres
+
+---
+# ServiceAccount: minio
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: minio
+  namespace: production
+  labels:
+    app: minio
+
+---
+# ServiceAccount: evidently
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: evidently
+  namespace: production
+  labels:
+    app: evidently
+
+---
+# ServiceAccount: prefect
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: prefect
+  namespace: production
+  labels:
+    app: prefect
+
+---
+# ServiceAccount: mlflow
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: mlflow
+  namespace: production
+  labels:
+    app: mlflow
+
+---
+# ServiceAccount: bentoml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bentoml
+  namespace: production
+  labels:
+    app: bentoml
+
+---
+# ServiceAccount: api
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: api
+  namespace: production
+  labels:
+    app: api
+
+---
+# SealedSecret: project-secrets
+apiVersion: bitnami.com/v1alpha1
+kind: SealedSecret
+metadata:
+  name: project-secrets
+  namespace: production
+  annotations:
+    sealedsecrets.bitnami.com/managed: 'true'
+spec:
+  encryptedData:
+    S3_ACCESS_KEY: Ag...base64_placeholder...
+    S3_SECRET_KEY: Ag...base64_placeholder...
+  template:
+    metadata:
+      name: project-secrets
+      labels:
+        nikame.role: secrets
+
+---
+# ConfigMap: api-config
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: api-config
+  namespace: production
+data:
+  APP_ENV: aws
+  PORT: '8000'
+
+---
+# PersistentVolumeClaim: postgres-backup-pvc
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: production
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+
+---
+# PersistentVolumeClaim: evidently-data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: evidently-data
+  namespace: production
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# Service: postgres
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: production
+  labels:
+    app: postgres
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  clusterIP: None
+
+---
+# Service: pgbouncer
+apiVersion: v1
+kind: Service
+metadata:
+  name: pgbouncer
+  namespace: production
+spec:
+  selector:
+    app: pgbouncer
+  ports:
+  - port: 5432
+    targetPort: 6432
+
+---
+# Service: minio
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio
+  namespace: production
+  labels:
+    app: minio
+spec:
+  selector:
+    app: minio
+  ports:
+  - port: 9000
+    targetPort: 9000
+    name: api
+  - port: 9001
+    targetPort: 9001
+    name: console
+
+---
+# Service: evidently
+apiVersion: v1
+kind: Service
+metadata:
+  name: evidently
+  namespace: production
+  labels:
+    app: evidently
+    nikame.module: evidently
+spec:
+  type: ClusterIP
+  selector:
+    app: evidently
+  ports:
+  - port: 8000
+    targetPort: 8000
+
+---
+# Service: prefect
+apiVersion: v1
+kind: Service
+metadata:
+  name: prefect
+  namespace: production
+  labels:
+    app: prefect
+    nikame.module: prefect
+spec:
+  type: ClusterIP
+  selector:
+    app: prefect
+  ports:
+  - port: 4200
+    targetPort: 4200
+
+---
+# Service: mlflow
+apiVersion: v1
+kind: Service
+metadata:
+  name: mlflow
+  namespace: production
+  labels:
+    app: mlflow
+    nikame.module: mlflow
+spec:
+  type: ClusterIP
+  selector:
+    app: mlflow
+  ports:
+  - port: 5000
+    targetPort: 5000
+
+---
+# Service: bentoml
+apiVersion: v1
+kind: Service
+metadata:
+  name: bentoml
+  namespace: production
+  labels:
+    app: bentoml
+    nikame.module: bentoml
+spec:
+  type: ClusterIP
+  selector:
+    app: bentoml
+  ports:
+  - port: 3000
+    targetPort: 3000
+
+---
+# Service: api
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: production
+  labels:
+    app: api
+spec:
+  selector:
+    app: api
+  ports:
+  - port: 80
+    targetPort: 8000
+  type: ClusterIP
+
+---
+# StatefulSet: postgres
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: production
+  labels:
+    app: postgres
+    nikame.module: postgres
+spec:
+  serviceName: postgres
+  replicas: 3
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      serviceAccountName: postgres
+      containers:
+      - name: postgres
+        image: public.ecr.aws/bitnami/postgresql:16.2.0
+        ports:
+        - containerPort: 5432
+        envFrom:
+        - secretRef:
+            name: postgres-secret
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 2Gi
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - postgres
+          initialDelaySeconds: 30
+          periodSeconds: 10
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+
+---
+# StatefulSet: minio
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: minio
+  namespace: production
+  labels:
+    app: minio
+    nikame.module: minio
+spec:
+  serviceName: minio
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minio
+  template:
+    metadata:
+      labels:
+        app: minio
+    spec:
+      serviceAccountName: minio
+      containers:
+      - name: minio
+        image: minio/minio:latest
+        ports:
+        - containerPort: 9000
+        - containerPort: 9001
+          name: console
+        envFrom: []
+        volumeMounts:
+        - name: minio-data
+          mountPath: /var/lib/minio
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /minio/health/live
+            port: 9000
+          initialDelaySeconds: 20
+        args:
+        - server
+        - /var/lib/minio
+        - --console-address
+        - :9001
+  volumeClaimTemplates:
+  - metadata:
+      name: minio-data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 20Gi
+
+---
+# StatefulSet: elasticsearch
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: elasticsearch
+  namespace: production
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      app: elasticsearch
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+    spec:
+      containers:
+      - name: elasticsearch
+        image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+        ports:
+        - containerPort: 9200
+        env:
+        - name: discovery.type
+          value: single-node
+        - name: xpack.security.enabled
+          value: 'false'
+
+---
+# StatefulSet: mongodb
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mongodb
+  namespace: production
+spec:
+  serviceName: mongodb
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb
+  template:
+    metadata:
+      labels:
+        app: mongodb
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:7.0
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: admin
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secrets
+              key: password
+
+---
+# Deployment: pgbouncer
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pgbouncer
+  namespace: production
+  labels:
+    app: pgbouncer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pgbouncer
+  template:
+    metadata:
+      labels:
+        app: pgbouncer
+    spec:
+      serviceAccountName: postgres
+      containers:
+      - name: pgbouncer
+        image: public.ecr.aws/bitnami/pgbouncer:1.23.1
+        ports:
+        - containerPort: 6432
+        envFrom:
+        - secretRef:
+            name: postgres-secret
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+
+---
+# Deployment: evidently
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: evidently
+  namespace: production
+  labels:
+    app: evidently
+    nikame.module: evidently
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: evidently
+  template:
+    metadata:
+      labels:
+        app: evidently
+    spec:
+      serviceAccountName: evidently
+      containers:
+      - name: evidently
+        image: python:3.11-slim
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        command:
+        - bash
+        - -c
+        - pip install evidently && evidently ui --port 8000 --host 0.0.0.0 --workspace
+          /app/workspace
+        volumeMounts:
+        - name: data
+          mountPath: /app/workspace
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: evidently-data
+
+---
+# Deployment: prefect
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prefect
+  namespace: production
+  labels:
+    app: prefect
+    nikame.module: prefect
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prefect
+  template:
+    metadata:
+      labels:
+        app: prefect
+    spec:
+      serviceAccountName: prefect
+      containers:
+      - name: prefect
+        image: prefecthq/prefect:2-python3.11
+        ports:
+        - containerPort: 4200
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: PREFECT_SERVER_API_HOST
+          value: 0.0.0.0
+        - name: PREFECT_API_URL
+          value: $(PREFECT_API_URL)
+        - name: PREFECT_API_DATABASE_CONNECTION_URL
+          value: $(DATABASE_URL)
+        command:
+        - prefect
+        - server
+        - start
+        - --host
+        - 0.0.0.0
+
+---
+# Deployment: mlflow
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+  namespace: production
+  labels:
+    app: mlflow
+    nikame.module: mlflow
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mlflow
+  template:
+    metadata:
+      labels:
+        app: mlflow
+    spec:
+      serviceAccountName: mlflow
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow:v2.10.2
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+        env:
+        - name: MLFLOW_S3_ENDPOINT_URL
+          value: http://minio:9000
+        - name: MLFLOW_S3_IGNORE_TLS
+          value: 'true'
+        command:
+        - mlflow
+        - server
+        - --host
+        - 0.0.0.0
+        - --port
+        - '5000'
+        - --backend-store-uri
+        - $(DATABASE_URL)
+        - --default-artifact-root
+        - s3://mlflow
+
+---
+# Deployment: bentoml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bentoml
+  namespace: production
+  labels:
+    app: bentoml
+    nikame.module: bentoml
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bentoml
+  template:
+    metadata:
+      labels:
+        app: bentoml
+    spec:
+      serviceAccountName: bentoml
+      containers:
+      - name: bentoml
+        image: my_bento:latest
+        ports:
+        - containerPort: 3000
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 500m
+            memory: 1Gi
+
+---
+# Deployment: api
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: production
+  labels:
+    app: api
+    nikame.module: fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: api
+      initContainers:
+      - name: wait-for-postgres
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - until nc -z postgres 5432; do echo waiting for postgres; sleep 2; done;
+      containers:
+      - name: api
+        image: custom-hybrid-db-api:latest
+        ports:
+        - containerPort: 8000
+        envFrom:
+        - configMapRef:
+            name: api
+        resources:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 30
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+
+---
+# Job: postgres-migration
+apiVersion: v1
+kind: Job
+metadata:
+  name: postgres-migration
+  namespace: production
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: custom-hybrid-db-api:latest
+        command:
+        - alembic
+        - upgrade
+        - head
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://postgres@postgres:5432/custom-hybrid-db
+      restartPolicy: OnFailure
+  backoffLimit: 4
+
+---
+# CronJob: postgres-backup
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: production
+spec:
+  schedule: 0 2 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: public.ecr.aws/bitnami/postgresql:16.2.0
+            command:
+            - /bin/bash
+            - -c
+            - pg_dump -h postgres -U postgres custom-hybrid-db > /backups/backup_$(date
+              +%Y%m%d).sql
+            envFrom:
+            - secretRef:
+                name: postgres-secret
+            volumeMounts:
+            - name: backups
+              mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+          - name: backups
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc
+
+---
+# PodDisruptionBudget: postgres
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres
+  namespace: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: postgres
+
+---
+# PodDisruptionBudget: minio
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: minio
+  namespace: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: minio
+
+---
+# PodDisruptionBudget: api
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api
+  namespace: production
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: api
+
+---
+# HorizontalPodAutoscaler: api
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: api
+  namespace: production
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: api
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

@@ -1,0 +1,16 @@
+name = "Async SQLAlchemy Session"
+slug = "database/async-session"
+category = "database"
+tags = ["database", "sqlalchemy", "async", "postgres"]
+description = "Async SQLAlchemy engine setup, session factory, get_db dependency"
+difficulty = "intermediate"
+deps = ["sqlalchemy", "asyncpg", "fastapi"]
+depends_on = []
+
+[[files]]
+src = "session.py"
+dest = "database/session.py"
+merge = "replace"
+
+template_vars = ["DATABASE_URL"]
+related = ["database/repository", "database/unit-of-work"]

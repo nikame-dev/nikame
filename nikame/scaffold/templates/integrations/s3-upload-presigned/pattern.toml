@@ -1,0 +1,21 @@
+name = "S3 Presigned Uploads"
+slug = "integrations/s3-upload-presigned"
+category = "integrations"
+tags = ["s3", "aws", "upload", "boto3", "security"]
+description = "Secure file handling using Boto3 presigned URLs for direct-to-S3 uploads"
+difficulty = "intermediate"
+deps = ["boto3"]
+depends_on = ["core/settings"]
+
+[[files]]
+src = "s3_service.py"
+dest = "services/s3.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/uploads.py"
+merge = "replace"
+
+template_vars = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_REGION", "S3_BUCKET_NAME"]
+related = ["core/response-models"]

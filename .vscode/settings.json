@@ -1,0 +1,15 @@
+{
+  "files.exclude": {
+    "**/__pycache__/**": true,
+    "**/**/*.pyc": true
+  },
+  "python.defaultInterpreterPath": "/home/omdeep-borkar/.pyenv/versions/3.11.4/bin/python3",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}",
+    "${workspaceFolder}/nikame",
+    "${workspaceFolder}/nikame-registry",
+    "${workspaceFolder}/.venv/lib/python3.11/site-packages",
+    "/home/omdeep-borkar/.pyenv/versions/3.11.4/lib/python3.11/site-packages",
+    "/home/omdeep-borkar/.local/lib/python3.11/site-packages"
+  ]
+}

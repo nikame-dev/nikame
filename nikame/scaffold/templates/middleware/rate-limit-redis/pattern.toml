@@ -1,0 +1,21 @@
+name = "Redis Sliding Window Rate Limit"
+slug = "middleware/rate-limit-redis"
+category = "middleware"
+tags = ["security", "rate-limit", "redis", "middleware"]
+description = "Advanced sliding-window rate limiting implementation using Redis Lua scripts"
+difficulty = "advanced"
+deps = ["redis"]
+depends_on = ["core/settings"]
+
+[[files]]
+src = "limiter.py"
+dest = "middleware/rate_limiter.py"
+merge = "replace"
+
+[[files]]
+src = "lua_scripts.py"
+dest = "middleware/scripts/limiter.lua"
+merge = "replace"
+
+template_vars = ["REDIS_URL"]
+related = ["auth/api-key", "security/api-key-rotation"]

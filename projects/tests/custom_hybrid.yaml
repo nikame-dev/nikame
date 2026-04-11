@@ -1,0 +1,27 @@
+api:
+  framework: fastapi
+cache:
+  provider: redis
+databases:
+  elasticsearch: {}
+  mongodb: {}
+  postgres: {}
+description: A custom setup with multiple databases and ML.
+environment:
+  profile: production
+  target: aws
+features:
+- auth
+- payments
+- search_sync
+mlops:
+  monitoring:
+  - evidently
+  serving:
+  - ollama
+  - bentoml
+name: custom-hybrid-db
+project:
+  scale: large
+  type: ml_app
+version: '1.0'

@@ -1,0 +1,29 @@
+version: '1.3'
+name: microservices-fleet
+description: Distributed system with multiple microservices, shared auth, and Service Mesh.
+project:
+  scale: large
+  access_pattern: balanced
+api:
+  framework: fastapi
+databases:
+  postgres:
+    pgbouncer: true
+  mongodb: {}
+  redis:
+    cluster: true
+messaging:
+  redpanda:
+    topics:
+      - name: user-events
+      - name: orders
+gateway:
+  provider: traefik
+features:
+  - auth
+  - multi_tenancy
+  - webhooks
+  - audit_log
+  - tracing
+observability:
+  stack: full

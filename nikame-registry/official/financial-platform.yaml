@@ -1,0 +1,29 @@
+version: '1.3'
+name: financial-platform
+description: High-compliance banking system with PostgreSQL HA, Ledger database, and Redpanda events.
+project:
+  scale: large
+  access_pattern: write_heavy
+databases:
+  postgres:
+    replicas: 3
+    pgbouncer: true
+    extensions: ["pgcrypto", "audit_log"]
+  mongodb: {}
+messaging:
+  redpanda:
+    brokers: 3
+    topics:
+      - name: transactions
+        partitions: 12
+      - name: settlement
+        partitions: 12
+features:
+  - auth
+  - audit_log
+  - webhooks
+  - tracing
+observability:
+  stack: full
+  loki: true
+  tempo: true

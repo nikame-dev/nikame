@@ -1,0 +1,13 @@
+name = "Versioned Router"
+category = "routing"
+tags = ["routing", "versioning", "api"]
+description = "API versioning pattern using APIRouter mounting for /v1 and /v2."
+difficulty = "beginner"
+deps = ["fastapi"]
+depends_on = []
+files = [
+  { src = "versioning.py", dest = "routers/versioning.py", merge = "replace" },
+  { src = "v1.py", dest = "routers/v1.py", merge = "replace" },
+  { src = "v2.py", dest = "routers/v2.py", merge = "replace" },
+]
+template_vars = []

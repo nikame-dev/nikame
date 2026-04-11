@@ -1,0 +1,27 @@
+version: '1.0'
+name: saas-starter
+description: A complete SaaS foundation with billing, auth, and multi-tenancy.
+project:
+  type: saas
+  scale: small
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+cache:
+  provider: dragonfly
+routing:
+  proxy: traefik
+features:
+- auth
+- stripe
+- multi_tenancy
+- rate_limiting
+- health_check
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

@@ -1,0 +1,37 @@
+# Kubernetes Probes Configuration Snippets
+# Copy these into your Deployment.spec.template.spec.containers[0]
+
+# ---------------------------------------------------------
+# 1. Startup Probe: Wait for heavy AI models to load
+# ---------------------------------------------------------
+startupProbe:
+  httpGet:
+    path: /health/liveness
+    port: 8000
+  # Gives the model up to 5 minutes (30 * 10s) to load VRAM
+  failureThreshold: 30
+  periodSeconds: 10
+
+# ---------------------------------------------------------
+# 2. Liveness Probe: Restart if the process deadlocks
+# ---------------------------------------------------------
+livenessProbe:
+  httpGet:
+    path: /health/liveness
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# ---------------------------------------------------------
+# 3. Readiness Probe: Remove from LB if DB/Model is busy
+# ---------------------------------------------------------
+readinessProbe:
+  httpGet:
+    path: /health/readiness
+    port: 8000
+  initialDelaySeconds: 5
+  periodSeconds: 15
+  timeoutSeconds: 10
+  failureThreshold: 3

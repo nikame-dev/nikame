@@ -1,0 +1,21 @@
+name = "Large File Streaming"
+slug = "streaming/file-stream"
+category = "streaming"
+tags = ["streaming", "files", "download", "performance"]
+description = "Large file streaming with range requests, chunked transfer"
+difficulty = "intermediate"
+deps = ["fastapi", "anyio"]
+depends_on = []
+
+[[files]]
+src = "file_stream.py"
+dest = "streaming/file_stream.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/files.py"
+merge = "replace"
+
+template_vars = ["DATA_DIR"]
+related = []

@@ -1,0 +1,21 @@
+name = "Multi-Stage Production Docker"
+slug = "infra/multi-stage-docker"
+category = "infra"
+tags = ["docker", "infra", "production", "optimized"]
+description = "Production-optimized Dockerfile with multi-stage builds, non-root user, and layer caching"
+difficulty = "intermediate"
+deps = []
+depends_on = []
+
+[[files]]
+src = "Dockerfile"
+dest = "Dockerfile"
+merge = "replace"
+
+[[files]]
+src = "dockerignore"
+dest = ".dockerignore"
+merge = "replace"
+
+template_vars = []
+related = ["infra/nginx-swarm-config"]

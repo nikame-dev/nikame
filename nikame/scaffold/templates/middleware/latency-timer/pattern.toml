@@ -1,0 +1,16 @@
+name = "Latency Timer"
+slug = "middleware/latency-timer"
+category = "middleware"
+tags = ["middleware", "performance", "timing"]
+description = "Request timing, slow request warnings, X-Process-Time header"
+difficulty = "beginner"
+deps = ["fastapi", "structlog"]
+depends_on = []
+
+[[files]]
+src = "latency.py"
+dest = "middleware/latency.py"
+merge = "replace"
+
+template_vars = []
+related = ["middleware/structured-logger"]

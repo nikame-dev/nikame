@@ -1,0 +1,27 @@
+version: '1.3'
+name: gen-ai-studio
+description: Generative AI with RAG, Vector DB, and LLM serving.
+project:
+  scale: medium
+  access_pattern: read_heavy
+databases:
+  qdrant:
+    storage: "20Gi"
+  postgres:
+    extensions: ["pgvector"]
+mlops:
+  models:
+    - name: mistral-7b
+      source: huggingface
+      model: mistralai/Mistral-7B-v0.1
+      serve_with: vllm
+      gpu: required
+  vector_dbs: ["qdrant"]
+  monitoring: ["langfuse"]
+features:
+  - rag-pipeline
+  - semantic-search
+  - tracing
+observability:
+  stack: full
+  tempo: true

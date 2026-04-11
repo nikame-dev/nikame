@@ -1,0 +1,28 @@
+version: '1.0'
+name: event-driven-api
+description: Scalable event-driven architecture with background jobs.
+project:
+  type: general
+  scale: medium
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  elasticsearch: {}
+cache:
+  provider: dragonfly
+messaging:
+  redpanda: {}
+routing:
+  proxy: traefik
+features:
+- auth
+- cron_jobs
+- health_check
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

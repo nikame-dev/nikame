@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Job
+metadata:
+  name: postgres-migration
+  namespace: production
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: custom-hybrid-db-api:latest
+        command:
+        - alembic
+        - upgrade
+        - head
+        env:
+        - name: DATABASE_URL
+          value: postgresql+asyncpg://postgres@postgres:5432/custom-hybrid-db
+      restartPolicy: OnFailure
+  backoffLimit: 4

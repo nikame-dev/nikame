@@ -1,0 +1,26 @@
+name = "JWT Bearer Auth"
+slug = "auth/jwt"
+category = "auth"
+tags = ["auth", "jwt", "security", "bearer"]
+description = "Full JWT authentication with access + refresh tokens"
+difficulty = "intermediate"
+deps = ["python-jose[cryptography]", "passlib[bcrypt]", "pydantic-settings"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "auth.py"
+dest = "auth/jwt.py"
+merge = "replace"
+
+[[files]]
+src = "schemas.py"
+dest = "schemas/auth.py"
+merge = "append-exports"
+
+[[files]]
+src = "router.py"
+dest = "routers/auth.py"
+merge = "replace"
+
+template_vars = ["SECRET_KEY", "ALGORITHM", "ACCESS_TOKEN_EXPIRE_MINUTES"]
+related = ["auth/api-key", "auth/rbac", "dependency_injection/layered-deps"]

@@ -1,0 +1,16 @@
+name = "Role-Based Access Control"
+slug = "auth/rbac"
+category = "auth"
+tags = ["auth", "rbac", "permissions", "security"]
+description = "Role-based access control with require_role() dep factory and role hierarchy"
+difficulty = "intermediate"
+deps = ["fastapi", "pydantic"]
+depends_on = ["auth/jwt", "core/error-handlers"]
+
+[[files]]
+src = "rbac.py"
+dest = "auth/rbac.py"
+merge = "replace"
+
+template_vars = []
+related = ["auth/jwt", "auth/api-key"]

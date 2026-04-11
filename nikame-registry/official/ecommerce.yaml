@@ -1,0 +1,31 @@
+version: '1.0'
+name: ecommerce
+description: Storefront backend with payments, workers, and organizations.
+project:
+  type: ecommerce
+  scale: large
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+storage:
+  provider: minio
+cache:
+  provider: dragonfly
+messaging:
+  redpanda: {}
+routing:
+  proxy: traefik
+features:
+- auth
+- stripe
+- multi_tenancy
+- cron_jobs
+- health_check
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

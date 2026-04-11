@@ -1,0 +1,21 @@
+name = "LLM Proxy Stream"
+slug = "streaming/llm-stream"
+category = "streaming"
+tags = ["streaming", "llm", "ai", "openai", "anthropic"]
+description = "Stream OpenAI/Anthropic SDK responses through FastAPI"
+difficulty = "intermediate"
+deps = ["openai", "anthropic", "fastapi"]
+depends_on = ["core/error-handlers"]
+
+[[files]]
+src = "llm_stream.py"
+dest = "streaming/llm_stream.py"
+merge = "replace"
+
+[[files]]
+src = "router.py"
+dest = "routers/llm_stream.py"
+merge = "replace"
+
+template_vars = ["OPENAI_API_KEY"]
+related = ["ai_infra/llm-proxy"]

@@ -1,12 +1,11 @@
 """NIKAME CLI entry point.
 
 Registers all Click commands under the `nikame` group.
-All output uses rich.console — never print().
 """
 
 from __future__ import annotations
-
 import click
+import asyncio
 
 from nikame import __version__
 from nikame.cli.commands.add import add
@@ -26,6 +25,8 @@ from nikame.cli.commands.verify import verify
 from nikame.cli.commands.preflight import preflight
 from nikame.cli.commands.tunnel import tunnel
 from nikame.cli.commands.templates import templates_group
+from nikame.cli.commands.scaffold import scaffold_group
+from nikame.cli.commands.copilot import copilot_cmd, agent_cmd
 from nikame.utils.logger import console, setup_logging
 
 
@@ -34,19 +35,10 @@ from nikame.utils.logger import console, setup_logging
 @click.option("--verbose", "-v", is_flag=True, help="Enable debug logging.")
 @click.pass_context
 def cli(ctx: click.Context, verbose: bool) -> None:
-    """NIKAME — Describe your infrastructure. NIKAME builds it.
-
-    An open-source infrastructure automation framework. One config
-    file generates Docker Compose, K8s manifests, Terraform,
-    CI/CD pipelines, ML serving, and observability — all
-    compute-optimized by default.
-    """
+    """NIKAME — Describe your infrastructure. NIKAME builds it."""
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     setup_logging(verbose=verbose)
-
-    if verbose:
-        console.print("[info]Debug logging enabled[/info]")
 
 
 # Register commands
@@ -69,6 +61,9 @@ cli.add_command(tunnel)
 cli.add_command(verify)
 cli.add_command(preflight)
 cli.add_command(templates_group)
+cli.add_command(scaffold_group)
+cli.add_command(copilot_cmd)
+cli.add_command(agent_cmd)
 
 
 if __name__ == "__main__":

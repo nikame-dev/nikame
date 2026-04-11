@@ -1,0 +1,16 @@
+name = "Health Checks"
+slug = "observability/health-checks"
+category = "observability"
+tags = ["observability", "health", "probes", "kubernetes"]
+description = "Comprehensive health checks: Liveness, Readiness, Startup with DB/Redis/GPU verification"
+difficulty = "beginner"
+deps = ["fastapi", "httpx"]
+depends_on = []
+
+[[files]]
+src = "health.py"
+dest = "routers/health.py"
+merge = "replace"
+
+template_vars = []
+related = ["observability/prometheus"]

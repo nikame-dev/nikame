@@ -1,0 +1,21 @@
+name = "API Key Rotation"
+slug = "security/api-key-rotation"
+category = "security"
+tags = ["security", "api-key", "rotation", "redis"]
+description = "Logic for managing, validating, and rotating third-party or internal API keys with Redis"
+difficulty = "advanced"
+deps = ["redis"]
+depends_on = ["auth/api-key"]
+
+[[files]]
+src = "rotation_service.py"
+dest = "services/key_rotation.py"
+merge = "replace"
+
+[[files]]
+src = "middleware.py"
+dest = "middleware/auth_rotation.py"
+merge = "replace"
+
+template_vars = ["REDIS_URL"]
+related = ["auth/api-key", "middleware/rate-limit-redis"]

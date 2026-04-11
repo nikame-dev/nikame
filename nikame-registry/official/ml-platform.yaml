@@ -1,0 +1,32 @@
+version: '1.0'
+name: ml-platform
+description: End-to-end ML platform for training and high-throughput serving.
+project:
+  type: ml_platform
+  scale: large
+environment:
+  target: local
+  profile: local
+api:
+  framework: fastapi
+databases:
+  postgres: {}
+  qdrant: {}
+storage:
+  provider: minio
+cache:
+  provider: dragonfly
+mlops:
+  orchestration:
+    provider: prefect
+  tracking:
+    provider: mlflow
+  serving:
+  - vllm
+  monitoring:
+  - evidently
+  - langfuse
+observability:
+  logging: loki
+  metrics: prometheus
+  traces: tempo

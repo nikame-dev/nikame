@@ -1,0 +1,30 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: production
+spec:
+  schedule: 0 2 * * *
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: backup
+            image: public.ecr.aws/bitnami/postgresql:16.2.0
+            command:
+            - /bin/bash
+            - -c
+            - pg_dump -h postgres -U postgres custom-hybrid-db > /backups/backup_$(date
+              +%Y%m%d).sql
+            envFrom:
+            - secretRef:
+                name: postgres-secret
+            volumeMounts:
+            - name: backups
+              mountPath: /backups
+          restartPolicy: OnFailure
+          volumes:
+          - name: backups
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc
