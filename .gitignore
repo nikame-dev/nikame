@@ -29,8 +29,12 @@ htmlcov/
 # NIKAME Local State
 .nikame/
 .nikame_context
+.nikame_context.local
 *.bak
 nikame.yaml
+tmp/
+projects/
+*.log
 
 # Virtual Environments
 venv/

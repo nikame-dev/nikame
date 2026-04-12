@@ -1,8 +1,7 @@
 import asyncio
-import json
-import httpx
 import re
 import subprocess
+import os
 from pathlib import Path
 from typing import Optional, List, Dict, Any, AsyncIterator
 import click
@@ -19,7 +18,6 @@ from nikame.copilot.utils import FileManager
 from nikame.copilot.core.integrity import IntegrityEngine
 
 class CopilotEngine:
-    """Core engine for the NIKAME Copilot chat session."""
     def __init__(self, model_name: str, mode: str = "fast"):
         self.model_name = model_name
         self.mode = mode
@@ -37,94 +35,78 @@ class CopilotEngine:
 
     async def chat_stream(self, user_input: str) -> AsyncIterator[str]:
         self.history.append({"role": "user", "content": user_input})
-        
-        async with httpx.AsyncClient(timeout=300.0) as client:
-            try:
-                async with client.stream(
-                    "POST", 
-                    f"{self.client.base_url}/api/chat",
-                    json={
-                        "model": self.model_name,
-                        "messages": self.history,
-                        "stream": True,
-                        "options": {
-                            "num_ctx": 16384 if self.mode == "planning" else 8192,
-                            "temperature": 0.2
-                        }
-                    }
-                ) as response:
-                    full_response = ""
-                    async for line in response.aiter_lines():
-                        if not line: continue
-                        data = json.loads(line)
-                        if "message" in data:
-                            content = data["message"].get("content", "")
-                            full_response += content
-                            yield content
-                        if data.get("done"):
-                            self.history.append({"role": "assistant", "content": full_response})
-                            await self._process_tool_calls(full_response)
-            except Exception as e:
-                yield f"\n[red]Error: {str(e)}[/red]"
+        try:
+            full_response = ""
+            async for token in self.client.chat_stream(
+                model=self.model_name,
+                messages=self.history,
+                options={"num_ctx": 16384 if self.mode == "planning" else 8192, "temperature": 0.2}
+            ):
+                full_response += token
+                yield token
 
-    async def _process_tool_calls(self, text: str):
-        """Parse and execute bracketed commands."""
+            # After stream completes, execute actions and record history
+            self.history.append({"role": "assistant", "content": full_response})
+            feedback = await self._execute_actions(full_response)
+            if feedback:
+                yield f"\n\n[dim]Feedback: {feedback}[/dim]"
+        except Exception as e:
+            yield f"\n[red]Error: {str(e)}[/red]"
+
+    async def _execute_actions(self, text: str) -> str:
+        feedback = []
+        is_fast = self.mode == "fast"
+
         # 1. SCAFFOLD
-        scaffold_matches = re.findall(r"\[SCAFFOLD:\s*([^\]]+)\]", text)
-        for slug in scaffold_matches:
-             slug = slug.strip()
-             self.console.print(f"[cyan]✨ Action: Scaffolding {slug}[/cyan]")
-             if click.confirm(f"Execute 'nikame scaffold add {slug}'?"):
-                 get_scaffolder().scaffold(slug, Path("."))
-                 state = self.context.state.load()
-                 patterns = state.get("installed_patterns", [])
-                 if slug not in patterns: patterns.append(slug)
-                 self.context.state.update(installed_patterns=patterns, last_action=f"scaffold {slug}")
+        for slug in re.findall(r"\[SCAFFOLD:\s*([^\]]+)\]", text):
+            slug = slug.strip()
+            self.console.print(f"[cyan]✨ Action: nikame scaffold add {slug}[/cyan]")
+            if is_fast or click.confirm(f"Execute scaffold for {slug}?"):
+                try:
+                    get_scaffolder().scaffold(slug, Path("."))
+                    feedback.append(f"Scaffold {slug} success.")
+                except Exception as e:
+                    feedback.append(f"Scaffold {slug} error: {str(e)}")
 
         # 2. WRITE
-        write_pattern = r"\[WRITE:\s*([^\]]+)\]\s*```[a-z]*\n(.*?)\n```"
-        for match in re.finditer(write_pattern, text, re.DOTALL):
-            target = Path(match.group(1).strip())
-            content = match.group(2)
+        for match in re.finditer(r"\[WRITE:\s*([^\]]+)\]\s*```[a-zA-Z0-9_\-\+]*\s*\n(.*?)(\n```|\Z)", text, re.DOTALL):
+            target, content = Path(match.group(1).strip()), match.group(2)
             self.console.print(Panel(f"Action: Writing to {target}", border_style="yellow"))
-            if click.confirm(f"Commit changes to {target}?"):
+            if is_fast or click.confirm(f"Commit changes to {target}?"):
                 self.file_manager.create_backup(target)
+                target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(content)
-                self.context.state.update(last_action=f"write {target}")
+                feedback.append(f"Write {target} success.")
+
+        # 3. COMMAND
+        for cmd in re.findall(r"\[COMMAND:\s*([^\]]+)\]", text):
+            self.console.print(f"[bold yellow]⚡ Command:[/bold yellow] {cmd}")
+            if is_fast or click.confirm(f"Execute shell command: {cmd}?"):
+                res = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+                feedback.append(f"Command Output: {res.stdout or res.stderr}")
+
+        return "\n".join(feedback)
 
 class AutonomousAgent(CopilotEngine):
-    """Closed-loop Autonomous Agent for NIKAME."""
-    def __init__(self, model_name: str, mode: str = "planning"):
-        super().__init__(model_name, mode)
-        self.max_loops = 5
-
-    async def initialize(self):
-        await super().initialize()
-        self.history[0]["content"] += """
-        
-AUTONOMOUS AGENT MODE:
-- You must always output your reasoning in a <thought> block.
-- You have the power to SELF-HEAL. If a command fails, analyze the output and try again.
-- When finished, generate a REPORT.md in the project root.
-- Tools: [SCAFFOLD: slug], [WRITE: path], [COMMAND: cmd], [VERIFY: smoke].
-- If you have reached the objective, output: MISSION_COMPLETE.
-"""
-
     async def run_objective(self, objective: str):
-        self.console.print(Panel(f"Target Objective: [bold green]{objective}[/bold green]", title="Autonomous Mission Start"))
-        loop_count = 0
-        current_input = objective
-        
-        while loop_count < self.max_loops:
+        self.console.print(Panel(f"Mission: [bold green]{objective}[/bold green]", title="Autonomous Start"))
+        loop_count, current_input = 0, objective
+        while loop_count < 10:
             full_response = ""
-            with Live(Markdown(""), refresh_per_second=10, console=self.console) as live:
+            live = Live(Markdown(""), refresh_per_second=10, console=self.console)
+            with self.console.status("[bold cyan]Agent is thinking... (Building Context)[/bold cyan]") as status:
                 async for chunk in self.chat_stream(current_input):
+                    if full_response == "":
+                        status.stop()
+                        live.start()
                     full_response += chunk
-                    live.update(Markdown(full_response))
-            
-            if "MISSION_COMPLETE" in full_response:
-                self.console.print("[success]✓ Objective Reached.[/success]")
-                break
-            
-            current_input = "Analyze current state and continue towards objective. If done, say MISSION_COMPLETE."
+                    # Filter out messy <thought> tags and UI tags from the rendering only
+                    clean_display = re.sub(r"<thought>.*?(?:</thought>|$)", "", full_response, flags=re.DOTALL)
+                    clean_display = re.sub(r"\[(?:WRITE|COMMAND|SCAFFOLD):.*?\]", "", clean_display)
+                    live.update(Markdown(clean_display.strip()))
+            if live.is_started:
+                live.stop()
+                
+            if "MISSION_COMPLETE" in full_response: break
+            current_input = "Feedback: Actions completed. Continue task."
             loop_count += 1

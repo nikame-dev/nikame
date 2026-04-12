@@ -57,7 +57,9 @@ def _up_local(project_dir: Path, config: NikameConfig, service: tuple[str, ...],
         compose_data = yaml.safe_load(f)
         
     cmd_base = ["docker", "compose", "-p", config.name, "-f", str(compose_file)]
-    env_file = project_dir / ".env.generated"
+    env_file = project_dir / ".env"
+    if not env_file.exists():
+        env_file = project_dir / ".env.generated"
     if env_file.exists():
         cmd_base.extend(["--env-file", str(env_file)])
     

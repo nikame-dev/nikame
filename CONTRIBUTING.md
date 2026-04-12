@@ -6,7 +6,7 @@ Thank you for your interest in contributing to NIKAME! This document outlines th
 
 1.  **Clone the repository**:
     ```bash
-    git clone https://github.com/omdeepb69/nikame.git
+    git clone https://github.com/nikame-dev/nikame.git
     cd nikame
     ```
 

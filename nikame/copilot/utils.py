@@ -10,8 +10,10 @@ class FileManager:
     def __init__(self, root_dir: Path):
         self.root_dir = root_dir
 
-    def create_backup(self, file_path: Path) -> Path:
-        """Create a .bak file before modification."""
+    def create_backup(self, file_path: Path) -> Optional[Path]:
+        """Create a .bak file before modification if it exists."""
+        if not file_path.exists():
+            return None
         bak_path = file_path.with_suffix(file_path.suffix + ".bak")
         shutil.copy2(file_path, bak_path)
         return bak_path
