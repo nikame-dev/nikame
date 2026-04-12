@@ -1,12 +1,13 @@
-
 from typing import Any
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Grid, Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import (
     Button,
     ContentSwitcher,
+    Footer,
+    Header,
     Input,
     Label,
     SelectionList,
@@ -15,153 +16,265 @@ from textual.widgets import (
 from textual.widgets.selection_list import Selection
 
 
+class SidebarItem(Static):
+    """A single item in the sidebar indicating step progress."""
+    def __init__(self, label: str, step_id: str, **kwargs: Any) -> None:
+        super().__init__(label, id=f"sidebar-{step_id}", **kwargs)
+        self.step_id = step_id
+
 class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
     """
-    Step-by-step TUI wizard for project initialization.
+    State-of-the-art multi-step setup wizard for NIKAME projects.
     """
     
+    BINDINGS = [
+        ("enter", "submit", "Next Step"),
+        ("b", "back", "Previous Step"),
+        ("escape", "cancel", "Cancel Setup"),
+    ]
+
     CSS = """
         InitWizard {
-            align: center middle;
             background: $background;
         }
-        
-        #wizard-container {
-            width: 60;
-            height: auto;
-            border: thick $primary;
+
+        #wizard-grid {
+            grid-size: 2 1;
+            grid-columns: 28 1fr;
+            height: 100%;
+            border-top: tall $border;
+        }
+
+        #sidebar {
             background: $surface;
-            padding: 1 2;
+            border-right: tall $border;
+            padding: 2 2;
         }
-        
-        .wizard-step {
-            display: none;
-            height: auto;
-        }
-        
-        .visible {
-            display: block;
-        }
-        
-        .step-title {
-            text-align: center;
-            color: $accent;
+
+        .sidebar-title {
+            color: $primary;
             text-style: bold;
-            margin-bottom: 1;
+            margin-bottom: 2;
         }
-        
-        .step-description {
-            text-align: center;
+
+        SidebarItem {
+            padding: 1 1;
+            color: $text-secondary;
+            border-left: thick transparent;
+        }
+
+        SidebarItem.active {
+            color: $primary;
+            background: $primary-darken-1;
+            border-left: thick $primary;
+            text-style: bold;
+        }
+
+        SidebarItem.completed {
+            color: $success;
+        }
+
+        #content-area {
+            padding: 2 4;
+            height: 100%;
+        }
+
+        ContentSwitcher {
+            height: 100%;
+        }
+
+        .step-container {
+            height: 100%;
+            color: $text-primary;
+        }
+
+        .step-header {
+            margin-bottom: 2;
+        }
+
+        .step-title {
+            color: $primary;
+            text-style: bold underline;
+        }
+
+        .step-desc {
             color: $text-secondary;
             margin-bottom: 2;
         }
-        
+
         Input {
             margin-bottom: 1;
-            border: tall $accent;
+            border: tall $border;
         }
-        
+
+        Input:focus {
+            border: tall $primary;
+        }
+
         SelectionList {
-            height: 8;
-            border: tall $primary-darken-1;
+            height: 1fr;
+            border: tall $border;
             margin-bottom: 1;
         }
-        
-        #nav-buttons {
-            layout: horizontal;
-            height: 3;
-            align: center middle;
-            margin-top: 1;
+
+        SelectionList:focus {
+            border: tall $primary;
         }
-        
-        Button {
-            margin: 0 1;
+
+        #summary-pane {
+            background: $panel;
+            padding: 1 2;
+            border: double $primary;
+            height: 1fr;
+        }
+
+        #nav-help {
+            dock: bottom;
+            height: 3;
+            background: $surface;
+            color: $text-muted;
+            content-align: center middle;
         }
     """
 
     def __init__(self) -> None:
         super().__init__()
         self.step_index = 0
-        self.total_steps = 3
-        self.data = {
+        self.steps = ["identity", "architecture", "infrastructure", "finalize"]
+        self.data: dict[str, Any] = {
             "name": "my-nikame-app",
             "description": "A production-grade FastAPI service",
-            "modules": []
+            "modules": ["database.postgres", "auth.jwt"],
+            "profile": "local"
         }
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="wizard-container"):
-            with ContentSwitcher(initial="step-info"):
-                # Step 1: Basic Info
-                with Vertical(id="step-info", classes="wizard-step visible"):
-                    yield Label("STEP 1: PROJECT INFO", classes="step-title")
-                    yield Label("Define your system identity.", classes="step-description")
-                    yield Input(placeholder="Project Name", id="project-name", value=str(self.data["name"]))
-                    yield Input(placeholder="Description", id="project-desc", value=str(self.data["description"]))
+        yield Header(show_clock=True)
+        with Grid(id="wizard-grid"):
+            with Vertical(id="sidebar"):
+                yield Label("NIKAME V2.0", classes="sidebar-title")
+                yield SidebarItem("Identity", "identity", classes="active")
+                yield SidebarItem("Architecture", "architecture")
+                yield SidebarItem("Infrastructure", "infrastructure")
+                yield SidebarItem("Finalize", "finalize")
+            
+            with Vertical(id="content-area"):
+                with ContentSwitcher(initial="step-identity"):
+                    # Step 1: Identity
+                    with Vertical(id="step-identity", classes="step-container"):
+                        yield Label("SYSTEM IDENTITY", classes="step-title")
+                        yield Label("Define the core signature of your application.", classes="step-desc")
+                        yield Input(placeholder="Project Name", id="proj-name", value=self.data["name"])
+                        yield Input(placeholder="System Description", id="proj-desc", value=self.data["description"])
 
-                # Step 2: Feature Selection
-                with Vertical(id="step-patterns", classes="wizard-step"):
-                    yield Label("STEP 2: FEATURE REGISTRY", classes="step-title")
-                    yield Label("Select core system patterns to inject.", classes="step-description")
-                    yield SelectionList[str](
-                        Selection("PostgreSQL Database", "database.postgres", True),
-                        Selection("JWT Authentication", "auth.jwt", True),
-                        Selection("Redis Cache", "cache.redis", False),
-                        Selection("Docker Infrastructure", "infra.docker", True),
-                        id="pattern-selection"
-                    )
+                    # Step 2: Architecture
+                    with Vertical(id="step-architecture", classes="step-container"):
+                        yield Label("SYSTEM ARCHITECTURE", classes="step-title")
+                        yield Label("Select design patterns to weave into your codebase.", classes="step-desc")
+                        yield SelectionList[str](
+                            Selection("PostgreSQL (SQLAlchemy)", "database.postgres", True),
+                            Selection("JWT Authentication", "auth.jwt", True),
+                            Selection("Redis Cache Layer", "cache.redis", False),
+                            Selection("Docker Ecosystem", "infra.docker", True),
+                            id="module-selection"
+                        )
 
-                # Step 3: Finalize
-                with Vertical(id="step-finalize", classes="wizard-step"):
-                    yield Label("STEP 3: FINALIZE", classes="step-title")
-                    yield Label("Ready to architect your system?", classes="step-description")
-                    yield Static(id="summary-text", classes="step-description")
+                    # Step 3: Infrastructure
+                    with Vertical(id="step-infrastructure", classes="step-container"):
+                        yield Label("INFRASTRUCTURE PROFILE", classes="step-title")
+                        yield Label("Select your target environment profile.", classes="step-desc")
+                        yield SelectionList[str](
+                            Selection("Local Development", "local", True),
+                            Selection("Staging / QA", "staging", False),
+                            Selection("Production Optimized", "production", False),
+                            id="profile-selection"
+                        )
 
-            with Horizontal(id="nav-buttons"):
-                yield Button("Back", id="btn-back", variant="default")
-                yield Button("Next", id="btn-next", variant="primary")
+                    # Step 4: Finalize
+                    with Vertical(id="step-finalize", classes="step-container"):
+                        yield Label("CONFIRM ARCHITECTURE", classes="step-title")
+                        yield Label("Review your system specifications before generation.", classes="step-desc")
+                        yield Static(id="summary-pane")
 
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-next":
-            if self.step_index < self.total_steps - 1:
-                await self.next_step()
-            else:
-                await self.finish()
-        elif event.button.id == "btn-back":
-            if self.step_index > 0:
-                await self.prev_step()
+        yield Label("SPACE: Toggle  |  ENTER: Next  |  B: Back  |  ESC: Cancel", id="nav-help")
+        yield Footer()
 
-    async def next_step(self) -> None:
-        self.step_index += 1
-        switcher = self.query_one(ContentSwitcher)
+    def on_mount(self) -> None:
+        """Set initial focus."""
+        self.query_one("#proj-name").focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Progress when Enter is pressed in an Input."""
+        self.action_submit()
+
+    def action_submit(self) -> None:
+        """Handle Enter key to progress."""
+        current_step = self.steps[self.step_index]
         
-        if self.step_index == 1:
-            self.data["name"] = self.query_one("#project-name", Input).value
-            self.data["description"] = self.query_one("#project-desc", Input).value
-            switcher.current = "step-patterns"
-        elif self.step_index == 2:
-            selection = self.query_one("#pattern-selection", SelectionList)
-            self.data["modules"] = selection.selected
+        # Collect data from current step
+        if current_step == "identity":
+            self.data["name"] = self.query_one("#proj-name", Input).value
+            self.data["description"] = self.query_one("#proj-desc", Input).value
+        elif current_step == "architecture":
+            self.data["modules"] = self.query_one("#module-selection", SelectionList).selected
+        elif current_step == "infrastructure":
+            selected = self.query_one("#profile-selection", SelectionList).selected
+            self.data["profile"] = selected[0] if selected else "local"
+
+        if self.step_index < len(self.steps) - 1:
+            self.step_index += 1
+            self.update_view()
+        else:
+            self.dismiss(self.data)
+
+    def action_back(self) -> None:
+        """Handle B key to go back."""
+        if self.step_index > 0:
+            self.step_index -= 1
+            self.update_view()
+
+    def action_cancel(self) -> None:
+        """Handle ESC to cancel."""
+        self.dismiss(None)
+
+    def update_view(self) -> None:
+        """Update the TUI state based on step index."""
+        target_step = self.steps[self.step_index]
+        
+        # Switch content
+        self.query_one(ContentSwitcher).current = f"step-{target_step}"
+        
+        # Update sidebar
+        for i, step in enumerate(self.steps):
+            item = self.query_one(f"#sidebar-{step}", SidebarItem)
+            item.remove_class("active")
+            item.remove_class("completed")
+            
+            if i == self.step_index:
+                item.add_class("active")
+            elif i < self.step_index:
+                item.add_class("completed")
+
+        # Focus management
+        if target_step == "identity":
+            self.query_one("#proj-name").focus()
+        elif target_step == "architecture":
+            self.query_one("#module-selection").focus()
+        elif target_step == "infrastructure":
+            self.query_one("#profile-selection").focus()
+        elif target_step == "finalize":
             self.update_summary()
-            switcher.current = "step-finalize"
-            self.query_one("#btn-next", Button).label = "Finish"
-
-    async def prev_step(self) -> None:
-        self.step_index -= 1
-        switcher = self.query_one(ContentSwitcher)
-        self.query_one("#btn-next", Button).label = "Next"
-        
-        if self.step_index == 0:
-            switcher.current = "step-info"
-        elif self.step_index == 1:
-            switcher.current = "step-patterns"
 
     def update_summary(self) -> None:
-        summary = self.query_one("#summary-text", Static)
-        text = f"Project: [bold accent]{self.data['name']}[/]\n"
-        text += f"Modules: [bold accent]{', '.join(self.data['modules'])}[/]\n\n"
-        text += "Files will be generated in current directory."
-        summary.update(text)
-
-    async def finish(self) -> None:
-        self.dismiss(self.data)
+        """Populate the summary pane."""
+        pane = self.query_one("#summary-pane", Static)
+        output = f"[bold primary]PROPOSED SYSTEM ARCHITECTURE[/]\n\n"
+        output += f"Project Name:     [accent]{self.data['name']}[/]\n"
+        output += f"Description:      [text_secondary]{self.data['description']}[/]\n"
+        output += f"Environment:      [success]{self.data['profile'].upper()}[/]\n\n"
+        output += "[bold primary]SELECTED PATTERNS[/]\n"
+        for mod in self.data["modules"]:
+            output += f"  • {mod}\n"
+        
+        output += "\n\n[text_muted]Press ENTER to generate project files...[/]"
+        pane.update(output)

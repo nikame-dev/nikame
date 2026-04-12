@@ -1,29 +1,30 @@
 
-# NIKAME "Amber Core" Design System
-# Adapted from ui_ux.md specification
+# NIKAME "Amber Core" Design System - v2.1 (OpenCode Refinement)
+# Optimized for high-density, keyboard-driven terminal interfaces.
 
 COLORS: dict[str, str] = {
-    # Brand Colors
-    "accent": "#D4933A",
-    "accent_dim": "#8B6025",
-    "accent_glow": "#F0B55A",
+    # Brand Colors (Vibrant Neon Amber)
+    "accent": "#FFA500",      # Pure Orange/Amber
+    "accent_dim": "#4D3300",  # Deep Burned Orange
+    "accent_glow": "#FFD27F", # Soft Glow
     
     # Semantic Colors
-    "success": "#5A9E6F",
-    "warning": "#C4933A",
-    "danger": "#B85450",
-    "info": "#5A7FA3",
+    "success": "#00FF7F",     # Spring Green
+    "warning": "#FFD700",     # Gold
+    "danger": "#FF4500",      # Orange Red
+    "info": "#00BFFF",        # Deep Sky Blue
     
-    # Neutrals
-    "background": "#121212",   # Deep Charcoal
-    "surface": "#1E1E1E",      # Subtle elevation
-    "panel_bg": "#161616",     # Panel background
+    # Neutrals (Deep Space Black)
+    "background": "#0A0A0A",   # Absolute Dark
+    "surface": "#121212",      # Low elevation
+    "panel_bg": "#181818",     # Contrast panels
+    "border": "#262626",       # Muted border
     
     # Text
-    "text_primary": "#E8E0D0",   # Warm white
-    "text_secondary": "#8A8070", # Muted taupe
-    "text_muted": "#524B40",    # Dark taupe
-    "text_accent": "#D4933A",   # Amber text
+    "text_primary": "#FFFFFF",   # Crisp white
+    "text_secondary": "#B0B0B0", # Silver
+    "text_muted": "#555555",    # Dark Grey
+    "text_accent": "#FFA500",   # Amber highlight
 }
 
 
@@ -35,9 +36,14 @@ CSS_VARIABLES = {
     "background": COLORS["background"],
     "surface": COLORS["surface"],
     "panel": COLORS["panel_bg"],
+    "border": COLORS["border"],
     "success": COLORS["success"],
     "warning": COLORS["warning"],
     "error": COLORS["danger"],
+    "text-primary": COLORS["text_primary"],
+    "text-secondary": COLORS["text_secondary"],
+    "text-muted": COLORS["text_muted"],
+    "text-accent": COLORS["text_accent"],
 }
 
 

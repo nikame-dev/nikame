@@ -17,23 +17,31 @@ class NikameApp(App[None]): # type: ignore[misc]
     SUB_TITLE = "Autonomous Systems Orchestrator"
     
     CSS = get_css_variables_str() + """
+        * {
+            transition: background 200ms, color 200ms;
+        }
+
         Screen {
             background: $background;
         }
         
         Header {
-            background: $background;
+            background: $surface;
             color: $primary;
             text-style: bold;
+            border-bottom: tall $border;
         }
         
         Footer {
-            background: $background;
+            background: $surface;
             color: $text-secondary;
+            border-top: tall $border;
         }
         
         Footer > .footer--key {
             color: $primary;
+            background: $primary-darken-1;
+            text-style: bold;
         }
     """
     

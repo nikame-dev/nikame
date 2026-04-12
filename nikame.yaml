@@ -1,31 +1,7 @@
-version: '1.0'
-name: my-awesome-rag
-description: Production RAG with vector search and LLM serving.
-project:
-  type: rag_app
-  scale: medium
+version: '2.0'
+name: nikame-v2-manual-demo
+description: A demo
+modules:
+- auth.jwt
 environment:
   target: local
-  profile: local
-api:
-  framework: fastapi
-databases:
-  postgres: {}
-  qdrant: {}
-storage:
-  provider: minio
-cache:
-  provider: dragonfly
-messaging:
-  redpanda: {}
-mlops:
-  serving:
-  - ollama
-  agents:
-  - langchain
-  caches:
-  - gptcache
-observability:
-  logging: loki
-  metrics: prometheus
-  traces: tempo
