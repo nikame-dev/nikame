@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, JSON, DateTime
-from sqlalchemy.sql import func
 from app.database import Base
+from sqlalchemy import JSON, Boolean, Column, DateTime, Integer, String
+from sqlalchemy.sql import func
+
 
 class Template(Base):
     __tablename__ = "templates"

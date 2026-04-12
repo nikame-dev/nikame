@@ -1,0 +1,30 @@
+id: auth.jwt
+display_name: JWT Authentication
+version: 1.0.0
+category: security
+author: NIKAME Core
+description: Robust JWT-based authentication with Bearer tokens and role-based access control.
+tags: [security, auth, jwt, fastapi]
+
+requires: [database.*]
+conflicts: [auth.basic, auth.clerk]
+
+env_vars:
+  - name: JWT_SECRET_KEY
+    required: true
+    description: Secret key for signing tokens
+  - name: JWT_ALGORITHM
+    default: HS256
+    description: Signing algorithm to use
+
+injects:
+  - operation: create
+    path: app/core/security.py
+    template: security.py.j2
+  - operation: create
+    path: app/api/auth/router.py
+    template: router.py.j2
+  - operation: inject
+    path: app/main.py
+    marker: "# REGISTRY_AUTH_INJECTION"
+    content: "from app.api.auth.router import router as auth_router\napp.include_router(auth_router)"

@@ -1,6 +1,8 @@
-from pydantic import BaseModel
-from typing import Literal
 from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel
+
 
 class AppliedPattern(BaseModel):
     id: str
@@ -16,7 +18,7 @@ class AllocatedPort(BaseModel):
     protocol: Literal["tcp", "udp"] = "tcp"
 
 class ManifestV2(BaseModel):
-    manifest_version: Literal["2", 2] = "2" # type: ignore
+    manifest_version: Literal["2"] = "2"
     nikame_version: str
     project_name: str
     created_at: datetime

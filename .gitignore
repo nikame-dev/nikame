@@ -51,3 +51,7 @@ Thumbs.db
 !.env.example
 *.pem
 *.key
+
+ui_ux.md
+ALL_TASKS.md
+nikame_agent.md

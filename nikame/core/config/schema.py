@@ -1,5 +1,7 @@
 from typing import Literal
+
 from pydantic import BaseModel, field_validator
+
 
 class CopilotConfig(BaseModel):
     provider: Literal["ollama", "openai", "anthropic", "groq"] = "ollama"

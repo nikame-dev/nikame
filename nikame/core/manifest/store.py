@@ -1,19 +1,20 @@
 from pathlib import Path
+
 import yaml
-from datetime import datetime
-from typing import Any
+
 try:
     from httpx import __version__ as httpx_version
 except ImportError:
     httpx_version = "unknown"
 
+from .migrator import migrate_manifest
 from .schema import ManifestV2
 
 # Actually it's better to fetch nikame version properly, but we'll hardcode 2.0 for now
 NIKAME_VERSION = "2.0.0"
 
 class ManifestStore:
-    def __init__(self, project_root: str | Path):
+    def __init__(self, project_root: str | Path) -> None:
         self.project_root = Path(project_root)
         self.manifest_path = self.project_root / ".nikame" / "context.yaml"
     
@@ -36,41 +37,3 @@ class ManifestStore:
         # Assuming Pydantic v2
         data = manifest.model_dump(mode="json")
         self.manifest_path.write_text(yaml.dump(data, sort_keys=False))
-
-def migrate_manifest(raw: dict[str, Any], old_version: str) -> dict[str, Any]:
-    if old_version in ("1", "1.0"):
-        new_raw: dict[str, Any] = {}
-        new_raw["manifest_version"] = "2"
-        new_raw["nikame_version"] = raw.get("nikame_version", NIKAME_VERSION)
-        new_raw["project_name"] = raw.get("project_name", "migrated-project")
-        new_raw["created_at"] = datetime.utcnow().isoformat()
-        new_raw["patterns_applied"] = []
-        
-        # In v1 patterns might be just list of strings or simpler structures
-        old_patterns = raw.get("patterns_applied", [])
-        for p in old_patterns:
-            if isinstance(p, dict):
-                new_raw["patterns_applied"].append({
-                    "id": p.get("id", "unknown"),
-                    "version": p.get("version", "1.0"),
-                    "applied_at": datetime.utcnow().isoformat(),
-                    "files_created": [],
-                    "files_modified": [],
-                    "env_vars_added": []
-                })
-        
-        new_raw["ports_allocated"] = []
-        old_ports = raw.get("ports_allocated", {})
-        if isinstance(old_ports, dict):
-            for service, port in old_ports.items():
-                new_raw["ports_allocated"].append({
-                    "service": service,
-                    "port": int(port),
-                    "protocol": "tcp"
-                })
-        
-        new_raw["env_vars"] = []
-        new_raw["last_verified"] = None
-        new_raw["verification_passed"] = None
-        return new_raw
-    raise Exception(f"Unsupported manifest version: {old_version}")

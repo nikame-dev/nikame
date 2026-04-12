@@ -1,0 +1,12 @@
+[importlinter]
+root_package = nikame
+
+[importlinter:contract:layers]
+name = Layered architecture enforcement
+type = layers
+layers =
+    nikame.cli
+    nikame.tui
+    nikame.copilot
+    nikame.engines
+    nikame.core

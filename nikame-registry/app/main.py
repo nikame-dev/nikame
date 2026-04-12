@@ -1,14 +1,13 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-from sqlalchemy import or_
-from typing import List, Optional, Any
-from pydantic import BaseModel
 import json
-import redis
 import os
 
-from app import models, database
+import redis
+from app import models
 from app.database import engine, get_db
+from fastapi import Depends, FastAPI, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
@@ -26,7 +25,7 @@ except Exception:
 class TemplateBase(BaseModel):
     name: str
     description: str
-    tags: List[str] = []
+    tags: list[str] = []
     version: str = "1.0"
     
 class TemplateCreate(TemplateBase):
@@ -51,10 +50,10 @@ class TemplateDetailResponse(TemplateResponse):
 def health_check():
     return {"status": "ok"}
 
-@app.get("/templates", response_model=List[TemplateResponse])
+@app.get("/templates", response_model=list[TemplateResponse])
 def search_templates(
-    q: Optional[str] = None,
-    tag: Optional[str] = None,
+    q: str | None = None,
+    tag: str | None = None,
     sort_by: str = Query("stars", regex="^(stars|recent|name)$"),
     verified_only: bool = False,
     db: Session = Depends(get_db)
@@ -99,7 +98,7 @@ def search_templates(
         
     return results
 
-@app.get("/templates/mine", response_model=List[TemplateResponse])
+@app.get("/templates/mine", response_model=list[TemplateResponse])
 def get_my_templates(
     author: str, # In a real app this would come from Auth token
     db: Session = Depends(get_db)

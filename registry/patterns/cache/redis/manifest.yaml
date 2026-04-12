@@ -1,0 +1,17 @@
+id: cache.redis
+display_name: Redis Cache
+version: 1.0.0
+category: cache
+author: NIKAME Core
+description: High-performance caching integration with redis-py.
+tags: [cache, redis, fastapi, Performance]
+
+env_vars:
+  - name: REDIS_URL
+    default: redis://localhost:6379/0
+    description: Redis connection URL
+
+injects:
+  - operation: create
+    path: app/core/cache.py
+    template: config.py.j2

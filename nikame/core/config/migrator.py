@@ -1,13 +1,13 @@
-from rich.console import Console
-from rich.prompt import Confirm
 from typing import Any
+
+from rich.console import Console
 
 console = Console()
 
 def migrate_config(raw: dict[str, Any], old_version: str) -> dict[str, Any]:
     if str(old_version) in ("1.0", "1.x", "1", "1.1", "1.2", "1.3"):
         console.print(f"[yellow]Migrating config from v{old_version} to v2.0...[/yellow]")
-        new_raw = {}
+        new_raw: dict[str, Any] = {}
         new_raw["version"] = "2.0"
         new_raw["name"] = raw.get("name", "nikame-project")
         new_raw["description"] = raw.get("description")

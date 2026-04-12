@@ -1,6 +1,8 @@
 import pytest
 from pydantic import ValidationError
+
 from nikame.core.config.schema import NikameConfig
+
 
 def test_config_valid_modules() -> None:
     config = NikameConfig(

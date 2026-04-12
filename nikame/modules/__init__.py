@@ -1,1 +1,0 @@
-"""NIKAME module system."""

@@ -1,10 +1,14 @@
-from pydantic import BaseModel, Field
 from typing import Literal
+
+from pydantic import BaseModel, Field
+
 
 class InjectRule(BaseModel):
     path: str
-    template: str
-    operation: Literal["create", "append", "patch"]
+    operation: Literal["create", "append", "patch", "inject"]
+    template: str | None = None
+    content: str | None = None
+    marker: str | None = None
     patch_target: str | None = None
 
 class EnvVarDef(BaseModel):

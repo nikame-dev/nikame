@@ -1,0 +1,24 @@
+id: database.postgres
+display_name: PostgreSQL Database
+version: 1.0.0
+category: database
+author: NIKAME Core
+description: Robust SQLAlchemy-based PostgreSQL integration with session management and base model.
+tags: [database, sql, postgresql, sqlalchemy]
+
+env_vars:
+  - name: DATABASE_URL
+    required: true
+    description: PostgreSQL connection URL (e.g. postgresql+asyncpg://user:pass@host/db)
+
+injects:
+  - operation: create
+    path: app/db/base.py
+    template: base.py.j2
+  - operation: create
+    path: app/db/session.py
+    template: session.py.j2
+  - operation: inject
+    path: app/main.py
+    marker: "# DATABASE_INIT"
+    content: "from app.db.session import engine\n# Session init logic here"
