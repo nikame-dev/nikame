@@ -61,7 +61,7 @@ The **NIKAME Copilot** isn't just a chatbot; it's a member of your team with wri
 
 ## ⚡ Technical Showcase: KV-Cache Optimization
 
-NIKAME is optimized for **Local-First AI**. By implementing Selective Retrieval and AST-based stubbing, we reduce the token pressure on local models by up to 80%. This means you can run professional-grade architectural refactoring on your local machine (/home/omdeep-borkar/) with absolute privacy and zero latency.
+NIKAME is optimized for **Local-First AI**. By implementing Selective Retrieval and AST-based stubbing, we reduce the token pressure on local models by up to 80%. This means you can run professional-grade architectural refactoring on your local machine with absolute privacy and zero latency.
 
 ### Example Usage:
 ```bash

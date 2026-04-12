@@ -94,14 +94,34 @@ async def _do_one_shot(engine, query):
             live.update(Markdown(full_content))
 
 @click.command(name="agent")
-@click.argument("objective", required=True)
+@click.argument("objective", required=False)
+@click.option("--task", type=int, help="Task ID to fix from tasks.md")
 @click.option("--model", default=None, help="Force specific model.")
-def agent_cmd(objective: str, model: str):
-    """Launch NIKAME Autonomous Agent to reach a specific objective."""
+@click.option("--show-thought/--hide-thought", default=True, help="Toggle visible inner monologue.")
+def agent_cmd(objective: str, task: int, model: str, show_thought: bool):
+    """Launch NIKAME Autonomous Agent to reach a specific objective or fix a Sentinel Task."""
+    from pathlib import Path
+
+    if not objective and not task:
+        console.print("[red]Either an objective or a --task ID must be provided.[/red]")
+        return
+
+    if task:
+        task_file = Path("tasks.md")
+        if task_file.exists():
+            content = task_file.read_text()
+            objective = f"Read tasks.md and resolve Task #{task}. Ensure you run a smoke test after fixing."
+        else:
+            console.print("[red]tasks.md not found. No roadmap to fix.[/red]")
+            return
+
     if not model:
         model_choice = asyncio.run(get_model())
         if not model_choice: return
         model = model_choice
+
+    if show_thought:
+        console.print("[dim italic]Visibility: Inner Monologue Enabled[/dim italic]")
 
     agent = AutonomousAgent(model)
     asyncio.run(agent.initialize())

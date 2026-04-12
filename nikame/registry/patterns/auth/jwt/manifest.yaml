@@ -1,0 +1,30 @@
+id: auth.jwt
+version: "2.1"
+display_name: JWT Authentication
+description: Stateless JWT with refresh token rotation
+category: auth
+tags: [security, stateless, api]
+author: nikame-core
+
+requires:
+  - database.postgres
+  - cache.redis
+
+conflicts:
+  - auth.session
+
+injects:
+  - path: app/api/auth/router.py
+    template: router.j2
+    operation: create
+
+env_vars:
+  - name: JWT_SECRET_KEY
+    description: Secret key for JWT signing
+    required: true
+  - name: JWT_ALGORITHM
+    default: "HS256"
+
+tests:
+  - template: test_auth.j2
+    path: tests/api/test_auth.py
