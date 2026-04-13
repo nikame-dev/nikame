@@ -32,8 +32,16 @@ def _generate_project(name: str, description: str, modules: list[str], profile: 
     
     print_success(f"Created {config_path}")
     print_success("Initialized .nikame/ context directory")
-    console.print("\n[success]✨ Project initialized successfully![/]")
-    console.print("Run `[accent]nikame verify[/]` to check health.")
+    
+    from rich.panel import Panel
+    summary = (
+        f"[bold accent]Project:[/] {name}\n"
+        f"[bold accent]Environment:[/] {profile.upper()}\n"
+        f"[bold accent]Modules:[/] {', '.join(modules) if modules else 'None'}\n\n"
+        "Run `[success]nikame verify[/]` to check health."
+    )
+    console.print()
+    console.print(Panel(summary, title="[success]✨ Project initialized successfully![/]", border_style="success", expand=False))
 
 
 @app.callback(invoke_without_command=True)
@@ -65,6 +73,14 @@ def main(
         launcher = WizardLauncher()
         result = launcher.run()
         
+        # Ensure Textual buffer is fully flushed and terminal is reset
+        import os
+        import time
+        time.sleep(0.05)
+        os.system('clear' if os.name == 'posix' else 'cls')
+        
+        print_header("Project Initializer")
+        
         if result:
             _generate_project(
                 name=result["name"],
@@ -74,6 +90,7 @@ def main(
             )
         else:
             console.print("[warning]Initialization cancelled.[/]")
+            console.print()
         return
 
     # Standard CLI Prompts (Fallback/Classic)

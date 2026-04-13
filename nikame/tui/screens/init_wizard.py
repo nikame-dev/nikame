@@ -22,15 +22,17 @@ class SidebarItem(Static):
         super().__init__(label, id=f"sidebar-{step_id}", **kwargs)
         self.step_id = step_id
 
+from textual.binding import Binding
+
 class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
     """
     State-of-the-art multi-step setup wizard for NIKAME projects.
     """
     
     BINDINGS = [
-        ("enter", "submit", "Next Step"),
-        ("b", "back", "Previous Step"),
-        ("escape", "cancel", "Cancel Setup"),
+        Binding("enter", "submit", "Next Step", priority=True),
+        Binding("b", "back", "Previous Step", priority=True),
+        Binding("escape", "cancel", "Cancel Setup", priority=True),
     ]
 
     CSS = """
@@ -93,8 +95,17 @@ class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
         }
 
         .step-title {
-            color: $primary;
-            text-style: bold underline;
+            color: $primary-lighten-1;
+            text-style: bold;
+            padding-bottom: 1;
+            border-bottom: solid $primary-darken-1;
+            width: 100%;
+        }
+
+        .action-hint {
+            color: $success;
+            margin-top: 1;
+            text-align: right;
         }
 
         .step-desc {
@@ -166,11 +177,12 @@ class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
                         yield Label("Define the core signature of your application.", classes="step-desc")
                         yield Input(placeholder="Project Name", id="proj-name", value=self.data["name"])
                         yield Input(placeholder="System Description", id="proj-desc", value=self.data["description"])
+                        yield Label("Press [bold]ENTER ↵[/] to continue", classes="action-hint")
 
                     # Step 2: Architecture
                     with Vertical(id="step-architecture", classes="step-container"):
                         yield Label("SYSTEM ARCHITECTURE", classes="step-title")
-                        yield Label("Select design patterns to weave into your codebase.", classes="step-desc")
+                        yield Label("Select design patterns (Space to select, Enter to confirm).", classes="step-desc")
                         yield SelectionList[str](
                             Selection("PostgreSQL (SQLAlchemy)", "database.postgres", True),
                             Selection("JWT Authentication", "auth.jwt", True),
@@ -178,17 +190,19 @@ class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
                             Selection("Docker Ecosystem", "infra.docker", True),
                             id="module-selection"
                         )
+                        yield Label("Press [bold]ENTER ↵[/] to continue", classes="action-hint")
 
                     # Step 3: Infrastructure
                     with Vertical(id="step-infrastructure", classes="step-container"):
                         yield Label("INFRASTRUCTURE PROFILE", classes="step-title")
-                        yield Label("Select your target environment profile.", classes="step-desc")
+                        yield Label("Select your target environment profile (Space to select).", classes="step-desc")
                         yield SelectionList[str](
                             Selection("Local Development", "local", True),
                             Selection("Staging / QA", "staging", False),
                             Selection("Production Optimized", "production", False),
                             id="profile-selection"
                         )
+                        yield Label("Press [bold]ENTER ↵[/] to continue", classes="action-hint")
 
                     # Step 4: Finalize
                     with Vertical(id="step-finalize", classes="step-container"):
@@ -196,19 +210,20 @@ class InitWizard(Screen[dict[str, Any] | None]):  # type: ignore[misc]
                         yield Label("Review your system specifications before generation.", classes="step-desc")
                         yield Static(id="summary-pane")
 
-        yield Label("SPACE: Toggle  |  ENTER: Next  |  B: Back  |  ESC: Cancel", id="nav-help")
+        yield Label("ENTER: Next  |  B: Back  |  ESC: Cancel", id="nav-help")
         yield Footer()
 
     def on_mount(self) -> None:
-        """Set initial focus."""
         self.query_one("#proj-name").focus()
-
-    def on_input_submitted(self, event: Input.Submitted) -> None:
-        """Progress when Enter is pressed in an Input."""
-        self.action_submit()
 
     def action_submit(self) -> None:
         """Handle Enter key to progress."""
+        # Smart Focus: If Name is focused, move to Description instead of next step
+        if self.query_one(ContentSwitcher).current == "step-identity":
+            if self.query_one("#proj-name", Input).has_focus:
+                self.query_one("#proj-desc", Input).focus()
+                return
+
         current_step = self.steps[self.step_index]
         
         # Collect data from current step
